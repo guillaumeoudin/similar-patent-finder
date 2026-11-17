@@ -166,7 +166,7 @@
 <div class="wrap">
   <header>
     <h1>Similar Patent Finder</h1>
-    <p>Describe an invention. Find the closest patents in the loaded collection, with the exact passage that explains each match.</p>
+    <p>Describe an invention. Find the closest patents in the loaded corpus, with the exact passage that explains each match.</p>
     <div class="notice" role="note">Demo project. This is not legal advice and does not say whether anything is new or patentable.</div>
   </header>
 
@@ -312,9 +312,9 @@ const INFO = {
   ] : [para("Not available in this online demo, because it needs an AI model account. It can be run locally.")],
   models: () => [
     para("Search model: the model behind the semantic search. It turns your text and the patent passages into lists of numbers, and the closest numbers are the closest passages. It runs on every search."),
-    para(models.answer
-      ? "Comparison model: the AI language model that writes the comparison. It runs only when you choose the AI comparison: it reads your text and the best passages, then writes what overlaps and what differs. The program checks every quote it gives."
-      : "Comparison model: not available in this online demo, because it needs an AI model account."),
+    ...(models.answer
+      ? [para("Comparison model: the AI language model that writes the comparison. It runs only when you choose the AI comparison: it reads your text and the best passages, then writes what overlaps and what differs. The program checks every quote it gives.")]
+      : []),
   ],
   ranking: () => [
     para("The order of the results comes from merging two rankings of the passages: one from the semantic search and one from the keyword search."),
@@ -550,7 +550,7 @@ function syncCards() {
 
 function update() {
   const n = $("query").value.trim().length;
-  $("count").textContent = n < MIN_CHARS ? `${n} characters (${MIN_CHARS} needed)` : `${n} characters`;
+  $("count").textContent = n < MIN_CHARS ? `${n} characters (minimum ${MIN_CHARS})` : `${n} characters`;
   $("clear").hidden = $("query").value.length === 0;
   const explain = mode() === "answer";
   $("go").disabled = !(n >= MIN_CHARS && current() !== null && (!explain || models.answer));
