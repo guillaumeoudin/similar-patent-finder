@@ -55,7 +55,7 @@ cp .env.example .env
 docker compose -f docker_compose.yml up -d
 ```
 
-The embedder is chosen with `EMBEDDER` in `.env`. `local` runs an open model on your machine, needs no key and is the default (`pip install -e ".[local]"`). `voyage` and `mistral` call a web API and need a key. Only the local one is measured below.
+The embedder is chosen with `EMBEDDER` in `.env`. `local` runs an open model on your machine, needs no key and is the default (`pip install -e ".[local]"`). `voyage` and `mistral` call a web API and need a key. The local one and Voyage are measured below, Mistral is implemented but was never run, because its free plan no longer gives API access. A Voyage account without a payment method is limited to 3 requests and 10,000 tokens a minute, which is too little to index the corpus at a normal pace. `VOYAGE_RPM` and `VOYAGE_TPM` make the code slow down to fit such limits.
 
 Once the data is in place (see the next section):
 
@@ -94,22 +94,36 @@ For abstention I wrote twenty descriptions of things that are not in the corpus.
 
 ## Results
 
-The test set has not been run yet, so there is no test result here. These are development numbers, on 20 queries, with the open model `intfloat/multilingual-e5-small` (384 dimensions) computed on my own GPU. I tuned the settings on these same queries, so the numbers are optimistic.
+The test set has not been run yet, so there is no test result here. These are development numbers, on 20 queries. I tuned the settings on these same queries, so the numbers are optimistic.
 
-| System | Recall at 5 | Recall at 10 | MRR |
-|---|---|---|---|
-| Keywords only, BM25 in Python | 0.41 | 0.49 | 0.68 |
-| Keywords only, PostgreSQL full text search | 0.41 | 0.45 | 0.73 |
-| Vectors only | 0.43 | 0.52 | 0.76 |
-| Hybrid (k = 60, 50 candidates) | 0.40 | 0.47 | 0.80 |
+Two embedding models were compared: `intfloat/multilingual-e5-small` (384 dimensions), an open model computed on my own GPU, and `voyage-4-lite` (1024 dimensions) through its web API.
 
-With 20 queries, a gap of a few points is noise, and the four rows are close. The hybrid search puts the first correct patent higher up (MRR 0.80), but it does not find more of the expected patents than vectors alone. I had expected the hybrid to win more clearly, and on this set it does not.
+| System | Embedder | Recall at 5 | Recall at 10 | MRR |
+|---|---|---|---|---|
+| Keywords only, BM25 in Python | none | 0.41 | 0.49 | 0.68 |
+| Keywords only, PostgreSQL full text search | none | 0.41 | 0.45 | 0.73 |
+| Vectors only | e5-small | 0.43 | 0.52 | 0.76 |
+| Vectors only | voyage-4-lite | 0.43 | 0.48 | 0.71 |
+| Hybrid (k = 60, 50 candidates) | e5-small | 0.40 | 0.47 | 0.80 |
+| Hybrid (k = 60, 50 candidates) | voyage-4-lite | 0.42 | 0.50 | 0.76 |
+
+With 20 queries, a gap of a few points is noise, and every row is close to the others. I had expected the hybrid search and the paid model to win more clearly, and they do not. The hybrid search puts the first correct patent higher up, but it does not find clearly more of the expected patents than a single method. The open model on my GPU is as good as the web API on this set.
 
 One mistake worth telling. My first PostgreSQL keyword search cut the query to its first 60 terms and ranked with `ts_rank_cd`, and it reached only 0.35 recall at 10, well below the plain Python baseline. Using every term with `ts_rank` and length normalization brought it to 0.45.
 
-The abstention threshold is 0.862 cosine similarity, halfway between the weakest development query (0.892) and the closest of the ten off-topic descriptions (0.832). On the ten held-out descriptions the tool abstained ten times out of ten, and it never abstained on the 20 real queries. Ten hand-written descriptions say little about harder cases.
+The two models differ in one useful way, on abstention. The threshold is the cosine similarity under which the tool answers "no document close enough", and I set it halfway between the weakest development query and the closest of the ten off-topic descriptions.
 
-Search takes 0.38 s per query with the local model, and costs nothing.
+| | e5-small | voyage-4-lite |
+|---|---|---|
+| Weakest development query | 0.892 | 0.674 |
+| Closest off-topic description | 0.832 | 0.465 |
+| Threshold | 0.862 | 0.569 |
+| Held-out electrical descriptions that got no answer | 10 of 10 | 9 of 10 |
+| Development queries that got no answer | 0 of 20 | 0 of 20 |
+
+The e5 similarities all sit between 0.80 and 0.97, so a threshold there depends on a gap of 0.06. Voyage spreads them over a wider range, with a gap of 0.21. Ten hand-written descriptions say little about harder cases.
+
+Search takes 0.38 s per query with the local model and 1.1 s with Voyage, which includes the network call. The local model costs nothing. Voyage gives 200 million free tokens on this model, and the corpus is about 960,000 tokens, but the account needed a payment method for normal rate limits, so I added a small prepaid balance. I did not check the billing page for the exact charge.
 
 The answer step was run on the same 20 queries through a Claude subscription. It returned 34 quotes, and all 34 were found word for word in the source. None was rejected and none of the 20 answers was flagged. A query takes 8.2 s from search to answer. A verified quote proves the text is in the cited patent. It does not prove that the comment on what is close and different is right, and I only read that part by hand on one example. The token count I measured (405,000 in, 12,500 out) includes the overhead of the command line tool, so a direct API call would use less.
 
