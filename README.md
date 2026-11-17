@@ -17,7 +17,7 @@ You paste a description of an invention. It returns up to ten patents, closest f
 
 In a second mode, a language model also writes a short comment on what is close and what is different, with one quote per patent. The model must copy an excerpt from the patent. The program then searches for that excerpt in the real patent text, like a Ctrl+F. If it is found, the quote is shown. If it is not, the model made it up or altered it, so the quote is removed and the whole answer is marked unreliable.
 
-If nothing in the collection is close enough, the tool says so instead of guessing.
+If nothing in the collection is close enough, the tool does not bluff. It says: you shall not pass.
 
 There is a command line, and a small web page for people who prefer a browser. Both run on your own machine. Nothing is hosted online (see "Running it").
 
@@ -25,7 +25,7 @@ There is a command line, and a small web page for people who prefer a browser. B
 
 A tool like this is easy to demo and hard to judge. So I measured it against a record that already exists: what patent examiners actually found.
 
-**Who the examiner is.** When someone files a patent application, an employee of the patent office (here the USPTO, in the United States) reviews it. The examiner searches for earlier patents that show the idea is not new, and lists the ones they retain on the granted patent, under "references cited". It is the same job the tool is meant to do. The inventor's side cites patents too, but I kept only the ones marked as cited by the examiner.
+**Who the examiner is.** When someone files a patent application, an employee of the patent office (here the USPTO, in the United States) reviews it. The examiner is the person who decides whether your precious invention gets through the gate. To do that, the examiner searches for earlier patents that show the idea is not new, and lists the ones they retain on the granted patent, under "references cited". It is the same job the tool is meant to do. The inventor's side cites patents too, but I kept only the ones marked as cited by the examiner.
 
 **The test, step by step.**
 
@@ -37,7 +37,7 @@ A tool like this is easy to demo and hard to judge. So I measured it against a r
 
 I used 70 patents chosen with a fixed random seed, each with 3 to 8 examiner citations inside the collection. The collection itself has 500 patents: those 70, the patents they cite, and random ones from the same field.
 
-**Two sets, on purpose.** 20 of the 70 are the **development set**. I used them to try ideas and tune settings, so scores on them are flattering. The other 50 are the **test set**. I ran it once per system, at the very end, after every setting was frozen. Those are the numbers that count.
+**Two sets, on purpose.** 20 of the 70 are the **development set**. I used them to try ideas and tune settings, so scores on them are flattering. The other 50 are the **test set**. I ran it once per system, at the very end, after every setting was frozen. Like a trip to Mordor, there is no going back for a second try. Those are the numbers that count.
 
 **Two scores.**
 
