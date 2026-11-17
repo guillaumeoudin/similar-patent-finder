@@ -61,18 +61,26 @@ def get_access() -> AccessControl:
         if not _settings.session_secret:
             raise HTTPException(status_code=503, detail="The server is not configured.")
         _state["access"] = AccessControl(
-            _settings.database_url, _settings.rate_limit_per_hour, _settings.daily_cap
+            _settings.database_url,
+            _settings.rate_limit_per_hour,
+            _settings.daily_cap,
+            _settings.anthropic_limit_per_hour,
         )
     return _state["access"]
 
 
-def visitor_key(request: Request) -> str:
-    """A salted hash of the visitor address. The address itself is never stored."""
+def client_address(request: Request) -> str:
     forwarded = request.headers.get("x-vercel-forwarded-for") or request.headers.get(
         "x-forwarded-for", ""
     )
-    address = forwarded.split(",")[0].strip() or (request.client.host if request.client else "")
-    return hashlib.sha256(f"{_settings.session_secret}:{address}".encode()).hexdigest()[:24]
+    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "")
+
+
+def visitor_key(request: Request) -> str:
+    """A salted hash of the visitor address. The address itself is never stored."""
+    return hashlib.sha256(
+        f"{_settings.session_secret}:{client_address(request)}".encode()
+    ).hexdigest()[:24]
 
 
 def identify(request: Request) -> int | None:
@@ -99,19 +107,15 @@ def guard(kind: str):
         code_id = identify(request)
         quota = get_access().check_and_record(code_id, kind)
         if not quota.allowed:
-            wait = max(quota.retry_after // 60, 1)
-            detail = (
-                "The daily limit for this demo is reached. Please try again tomorrow."
-                if quota.reason == "daily"
-                else f"Limit of {quota.limit} requests per hour reached. Try again in "
-                f"about {wait} minutes."
-            )
             raise HTTPException(
-                status_code=429, detail=detail, headers={"Retry-After": str(quota.retry_after)}
+                status_code=429,
+                detail={"message": "Rate limit reached.", "ip": client_address(request)},
+                headers={"Retry-After": str(quota.retry_after)},
             )
         request.state.code_id = code_id
-        response.headers["X-Requests-Left"] = str(quota.remaining)
-        response.headers["X-Requests-Limit"] = str(quota.limit)
+        if _settings.auth_required:
+            response.headers["X-Requests-Left"] = str(quota.remaining)
+            response.headers["X-Requests-Limit"] = str(quota.limit)
 
     return check
 
@@ -265,9 +269,6 @@ def logout(response: Response) -> dict:
 @app.get("/me")
 def me(request: Request) -> dict:
     if not _settings.auth_required:
-        if _settings.public_limits:
-            quota = get_access().usage(get_access().visitor_id(visitor_key(request)))
-            return {"signed_in": True, "left": quota.remaining, "limit": quota.limit}
         return {"signed_in": True, "left": None, "limit": None}
     access = get_access()
     code_id = read_session(request.cookies.get(COOKIE), _settings.session_secret)

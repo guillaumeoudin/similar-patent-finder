@@ -53,7 +53,8 @@ class Settings:
     auth_required: bool = False  # True on a public deployment that needs an invite code
     public_limits: bool = False  # True: no login, but a request limit per visitor address
     session_secret: str = ""  # long random string that signs the session cookie
-    rate_limit_per_hour: int = 10  # requests per access code per hour
+    rate_limit_per_hour: int = 10  # requests per visitor per hour (all use the embedding service)
+    anthropic_limit_per_hour: int = 10  # of those, answers per visitor per hour (AI model)
     daily_cap: int = 200  # requests per day over all codes, a ceiling on spending
 
     @property
@@ -105,5 +106,6 @@ def load_settings() -> Settings:
         public_limits=_b("PUBLIC_LIMITS", d.public_limits),
         session_secret=os.environ.get("SESSION_SECRET", ""),
         rate_limit_per_hour=_i("RATE_LIMIT_PER_HOUR", d.rate_limit_per_hour),
+        anthropic_limit_per_hour=_i("ANTHROPIC_RATE_LIMIT_PER_HOUR", d.anthropic_limit_per_hour),
         daily_cap=_i("DAILY_CAP", d.daily_cap),
     )

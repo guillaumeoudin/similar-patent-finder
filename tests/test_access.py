@@ -76,7 +76,7 @@ def test_hourly_limit_counts_each_request_and_then_blocks(ac):
     left = [ac.check_and_record(code_id, "search").remaining for _ in range(3)]
     assert left == [2, 1, 0]
     blocked = ac.check_and_record(code_id, "search")
-    assert not blocked.allowed and blocked.reason == "hourly"
+    assert not blocked.allowed and blocked.reason == "voyage"
     assert 0 < blocked.retry_after <= 3601
     assert ac.usage(code_id).used == 3  # the refused request was not logged
 
@@ -95,3 +95,22 @@ def test_daily_cap_applies_to_all_codes_together(ac):
     results = [ac.check_and_record(ids[i % 3], "search") for i in range(6)]
     assert [r.allowed for r in results] == [True] * 5 + [False]
     assert results[-1].reason == "daily"
+
+
+def test_answers_have_their_own_hourly_limit(ac):
+    answers_ac = AccessControl(TEST_URL, limit_per_hour=5, daily_cap=50, answer_limit=2)
+    code_id, _ = answers_ac.create_code("alice")
+    assert answers_ac.check_and_record(code_id, "answer").allowed
+    assert answers_ac.check_and_record(code_id, "answer").allowed
+    third = answers_ac.check_and_record(code_id, "answer")
+    assert not third.allowed and third.reason == "anthropic"
+    assert answers_ac.check_and_record(code_id, "search").allowed  # searches still go through
+
+
+def test_every_request_counts_against_the_embedding_limit(ac):
+    answers_ac = AccessControl(TEST_URL, limit_per_hour=3, daily_cap=50, answer_limit=3)
+    code_id, _ = answers_ac.create_code("alice")
+    for kind in ("search", "answer", "search"):
+        assert answers_ac.check_and_record(code_id, kind).allowed
+    blocked = answers_ac.check_and_record(code_id, "answer")
+    assert not blocked.allowed and blocked.reason == "voyage"

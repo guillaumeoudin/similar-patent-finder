@@ -83,6 +83,10 @@ def test_limit_returns_429_with_retry_after(hosted):
     blocked = hosted.post("/search", json={"query": QUERY})
     assert blocked.status_code == 429
     assert blocked.headers["retry-after"] == "600"
+    # the message does not give the rule, and shows the visitor address
+    assert blocked.json()["detail"]["message"] == "Rate limit reached."
+    assert "ip" in blocked.json()["detail"]
+    assert "hour" not in blocked.text and "2" not in blocked.json()["detail"]["message"]
 
 
 def test_revoked_code_stops_working_at_once(hosted):
@@ -133,7 +137,7 @@ def test_public_mode_has_no_login_but_limits_each_visitor(monkeypatch):
         lambda q, c=None: (SearchResult(hits=[], best_similarity=0.9, abstained=False), {}),
     )
     client = TestClient(api.app)
-    assert client.get("/me").json() == {"signed_in": True, "left": 2, "limit": 2}
+    assert client.get("/me").json() == {"signed_in": True, "left": None, "limit": None}
     assert client.post("/search", json={"query": QUERY}).status_code == 200  # no sign in needed
     assert client.post("/search", json={"query": QUERY}).status_code == 200
     blocked = client.post("/search", json={"query": QUERY})

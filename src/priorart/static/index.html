@@ -515,9 +515,15 @@ async function submit(mode) {
     showQuota(resp.headers);
     if (!resp.ok) {
       let detail = "";
-      try { detail = (await resp.json()).detail || ""; } catch (_) {}
+      let body = {};
+      try { body = await resp.json(); detail = body.detail || ""; } catch (_) {}
+      if (resp.status === 429) {
+        const ip = (detail && detail.ip) || "";
+        setStatus("bad", el("span", {}, el("b", { text: "Rate limit reached." }),
+          ip ? document.createTextNode(" Your IP: ") : null, ip ? el("b", { text: ip }) : null));
+        return;
+      }
       if (resp.status === 401) { showLogin("Your session has ended. Please sign in again."); return; }
-      if (resp.status === 429) throw new Error(detail || "Request limit reached. Try again later.");
       throw new Error(resp.status === 503 ? "The service is not ready. " + detail : `Something went wrong (${resp.status}). ${detail}`);
     }
     const data = await resp.json();

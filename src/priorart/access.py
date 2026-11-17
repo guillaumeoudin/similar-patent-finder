@@ -87,7 +87,7 @@ class Quota:
     used: int  # requests by this code in the last hour, including this one if allowed
     limit: int
     retry_after: int = 0  # seconds until a slot frees up, when not allowed
-    reason: str = ""  # "hourly" or "daily" when not allowed
+    reason: str = ""  # "voyage", "anthropic" or "daily" when not allowed
 
     @property
     def remaining(self) -> int:
@@ -95,9 +95,16 @@ class Quota:
 
 
 class AccessControl:
-    def __init__(self, database_url: str, limit_per_hour: int, daily_cap: int):
+    def __init__(
+        self,
+        database_url: str,
+        limit_per_hour: int,
+        daily_cap: int,
+        answer_limit: int | None = None,
+    ):
         self.database_url = database_url
         self.limit = limit_per_hour
+        self.answer_limit = limit_per_hour if answer_limit is None else answer_limit
         self.daily_cap = daily_cap
         self._conn = None
 
@@ -177,22 +184,31 @@ class AccessControl:
         return Quota(used < self.limit, used, self.limit)
 
     def check_and_record(self, code_id: int, kind: str) -> Quota:
-        """Count this request against the limits and log it, unless a limit is reached."""
-        hour_used, oldest_wait, day_used = self._run(
+        """Count this request against the limits and log it, unless a limit is reached.
+
+        Every request uses the embedding service, so all of them count against `limit`. Only
+        answers use the AI model, so only they count against `answer_limit`.
+        """
+        hour_all, wait_all, hour_answers, wait_answers, day_used = self._run(
             "SELECT count(*) FILTER (WHERE code_id = %s AND at > now() - interval '1 hour'),"
             " extract(epoch FROM (min(at) FILTER (WHERE code_id = %s"
             "   AND at > now() - interval '1 hour') + interval '1 hour' - now())),"
+            " count(*) FILTER (WHERE code_id = %s AND kind = 'answer'"
+            "   AND at > now() - interval '1 hour'),"
+            " extract(epoch FROM (min(at) FILTER (WHERE code_id = %s AND kind = 'answer'"
+            "   AND at > now() - interval '1 hour') + interval '1 hour' - now())),"
             " count(*) "
             "FROM usage_log WHERE at > now() - interval '24 hours'",
-            (code_id, code_id),
+            (code_id, code_id, code_id, code_id),
         ).fetchone()
         if day_used >= self.daily_cap:
-            return Quota(False, hour_used, self.limit, 3600, "daily")
-        if hour_used >= self.limit:
-            wait = int(oldest_wait or 60) + 1
-            return Quota(False, hour_used, self.limit, wait, "hourly")
+            return Quota(False, hour_all, self.limit, 3600, "daily")
+        if hour_all >= self.limit:
+            return Quota(False, hour_all, self.limit, int(wait_all or 60) + 1, "voyage")
+        if kind == "answer" and hour_answers >= self.answer_limit:
+            return Quota(False, hour_all, self.limit, int(wait_answers or 60) + 1, "anthropic")
         self._run("INSERT INTO usage_log (code_id, kind) VALUES (%s, %s)", (code_id, kind))
-        return Quota(True, hour_used + 1, self.limit)
+        return Quota(True, hour_all + 1, self.limit)
 
     def refund(self, code_id: int) -> None:
         """Remove the latest logged request of a code (used when our service failed)."""
