@@ -170,7 +170,19 @@ What these numbers say, and do not say:
 
 Abstention: the similarity threshold (0.862) was set halfway between the lowest development query (0.892) and the highest of ten clearly off-topic descriptions (0.832). On ten held out descriptions of other electrical devices (wired charging, batteries, solar inverters), the tool abstained 10 times out of 10, and on the 20 development queries it abstained 0 times. These ten descriptions were written by hand and are few, so this says little about harder cases.
 
-Mean latency per query: 0.38 s for search only, local model on a GPU. Cost: none (the open model ran locally).
+Mean latency per query: 0.38 s for search only, local model on a GPU. Cost of the search: none (the open model ran locally).
+
+Answer step, same 20 development queries, through a Claude subscription (`ANSWERER=claude-code`):
+
+| Measure | Value |
+|---|---|
+| Quotes returned | 34 (about 1.7 per query) |
+| Quotes found word for word in the source | 34 of 34 |
+| Quotes rejected | 0 |
+| Answers flagged unreliable | 0 of 20 |
+| Mean time per query, search and answer | 8.2 s |
+
+What this does not show: a verified quote proves the text exists in the cited patent. It does not prove that the comment on what is close and what differs is right. That part was read by hand on one example only. The measured token count (405,000 in, 12,500 out) includes the overhead of the command line tool, so it overstates what a direct API call would use. The model does not set the temperature in this mode, so a second run may differ.
 
 ## 8. Failure analysis
 
