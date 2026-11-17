@@ -1,5 +1,7 @@
-# secrets
-.env
+# secrets (every .env file, except the example)
+.env*
+!.env.example
+.vercel/
 # raw and prepared data (never versioned)
 data/
 # private context files, never commit

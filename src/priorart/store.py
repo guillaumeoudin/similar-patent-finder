@@ -73,7 +73,8 @@ class Store:
         import psycopg
         from pgvector.psycopg import register_vector
 
-        self._conn = psycopg.connect(database_url, autocommit=True)
+        # no prepared statements: a pooled connection (Neon, pgbouncer) does not support them
+        self._conn = psycopg.connect(database_url, autocommit=True, prepare_threshold=None)
         self._conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
         register_vector(self._conn)
         self.dim = dim

@@ -1,0 +1,9 @@
+data/
+scratch/
+eval/
+tests/
+docs/
+.github/
+.venv/
+.env*
+!.env.example

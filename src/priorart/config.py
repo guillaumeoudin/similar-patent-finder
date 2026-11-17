@@ -49,6 +49,11 @@ class Settings:
     candidates: int = 50  # chunks fetched from each ranking before fusion
     top_k: int = 10  # patents returned
     abstain_below: float = 0.0  # minimum best cosine similarity, tuned on the dev set
+    # hosted version: invite codes, signed cookies and request limits
+    auth_required: bool = False  # True on a public deployment
+    session_secret: str = ""  # long random string that signs the session cookie
+    rate_limit_per_hour: int = 10  # requests per access code per hour
+    daily_cap: int = 200  # requests per day over all codes, a ceiling on spending
 
     @property
     def dim(self) -> int:
@@ -62,6 +67,11 @@ def _f(name: str, default: float) -> float:
 
 def _i(name: str, default: int) -> int:
     return int(os.environ.get(name, default))
+
+
+def _b(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    return default if raw is None else raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def load_settings() -> Settings:
@@ -90,4 +100,8 @@ def load_settings() -> Settings:
         candidates=_i("CANDIDATES", d.candidates),
         top_k=_i("TOP_K", d.top_k),
         abstain_below=_f("ABSTAIN_BELOW", d.abstain_below),
+        auth_required=_b("AUTH_REQUIRED", d.auth_required),
+        session_secret=os.environ.get("SESSION_SECRET", ""),
+        rate_limit_per_hour=_i("RATE_LIMIT_PER_HOUR", d.rate_limit_per_hour),
+        daily_cap=_i("DAILY_CAP", d.daily_cap),
     )

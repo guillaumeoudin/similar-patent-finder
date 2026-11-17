@@ -1,0 +1,6 @@
+# Dependencies of the hosted version (Vercel). No local model: embeddings come from Voyage.
+fastapi>=0.110
+httpx>=0.27
+psycopg[binary]>=3.2
+pgvector>=0.3
+anthropic>=0.40

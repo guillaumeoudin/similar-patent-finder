@@ -123,6 +123,25 @@ def cmd_answer(settings: Settings, query: str) -> None:
     print("\nThis is not legal advice.")
 
 
+def cmd_codes(settings: Settings, action: str, label: str | None, code_id: int | None) -> None:
+    """Manage the invite codes of a hosted version (the database is the one in DATABASE_URL)."""
+    from priorart.access import AccessControl
+
+    access = AccessControl(settings.database_url, settings.rate_limit_per_hour, settings.daily_cap)
+    if action == "create":
+        new_id, code = access.create_code(label or "unnamed")
+        print(f"code {new_id} created for '{label or 'unnamed'}'. Shown once, store it safely:")
+        print(code)
+    elif action == "list":
+        for cid, name, created, revoked, last_day, total in access.list_codes():
+            state = "revoked" if revoked else "active"
+            print(
+                f"{cid:3d}  {state:8s} {name:24s} {created:%Y-%m-%d}  24h {last_day}  all {total}"
+            )
+    elif action == "revoke":
+        print("revoked" if access.revoke(code_id) else "no such code")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="priorart")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -132,6 +151,10 @@ def main() -> None:
     p_index.add_argument("--vectors", type=Path, help="folder made by `priorart embed`")
     p_embed = sub.add_parser("embed", help="compute vectors for the corpus and save them")
     p_embed.add_argument("--out", type=Path, required=True, help="folder to write")
+    p_codes = sub.add_parser("codes", help="manage invite codes of a hosted version")
+    p_codes.add_argument("action", choices=["create", "list", "revoke"])
+    p_codes.add_argument("--label", help="who the code is for (create)")
+    p_codes.add_argument("--id", type=int, dest="code_id", help="code number (revoke)")
     for name in ("search", "answer"):
         p = sub.add_parser(name)
         p.add_argument("query", help="description of the invention")
@@ -142,6 +165,8 @@ def main() -> None:
         cmd_embed(settings, args.out)
     elif args.command == "index":
         cmd_index(settings, args.yes, args.reset, args.vectors)
+    elif args.command == "codes":
+        cmd_codes(settings, args.action, args.label, args.code_id)
     elif args.command == "search":
         cmd_search(settings, args.query)
     else:

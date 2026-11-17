@@ -20,6 +20,7 @@
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -40,11 +41,16 @@
     width: 100%; min-height: 150px; resize: vertical; padding: 12px; border-radius: 10px;
     border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit;
   }
+  input[type=password], input[type=text] {
+    flex: 1; min-width: 220px; padding: 11px 12px; border-radius: 10px; font: inherit;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
   textarea:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible {
     outline: 3px solid var(--accent); outline-offset: 2px;
   }
   .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
   .row.spread { justify-content: space-between; }
+  #loginMsg { color: var(--bad); margin-top: 8px; }
   .hint { color: var(--muted); font-size: .88rem; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip {
@@ -110,7 +116,24 @@
     <div class="notice" role="note">Demo project. This is not legal advice and does not say whether anything is new or patentable.</div>
   </header>
 
-  <form class="card" id="form" novalidate>
+  <section class="card" id="login" hidden>
+    <form id="loginForm" novalidate>
+      <label class="field" for="code">Access code</label>
+      <p class="hint">This demo is private, because every search costs a little money. Enter the access code you were given.</p>
+      <div class="row">
+        <input id="code" type="password" autocomplete="off" spellcheck="false" placeholder="spf-...">
+        <button class="primary" id="loginBtn" type="submit">Sign in</button>
+      </div>
+      <div id="loginMsg" role="alert"></div>
+    </form>
+  </section>
+
+  <div class="row spread" id="sessionBar" hidden>
+    <span class="hint" id="quota"></span>
+    <button class="link" id="logout" type="button">Log out</button>
+  </div>
+
+  <form class="card" id="form" novalidate hidden>
     <label class="field" for="query">Describe the invention</label>
     <textarea id="query" placeholder="For example: a charging pad that detects metal objects on its surface and reduces power to avoid heating them." aria-describedby="count"></textarea>
     <div class="row"><span class="hint" id="count">0 characters (20 needed)</span></div>
@@ -121,7 +144,7 @@
       <legend>What do you want?</legend>
       <label><input type="radio" name="mode" value="search" checked> Find similar patents
         <small>Fast. Shows the best matching passages.</small></label>
-      <label><input type="radio" name="mode" value="answer"> Find and explain
+      <label id="answerLabel"><input type="radio" name="mode" value="answer" id="answerRadio"> Find and explain
         <small>Also writes what is close and what differs. Every quote is checked against the source. Uses an AI model, so it is slower and has a cost.</small></label>
     </fieldset>
 
@@ -264,9 +287,12 @@ async function submit(ev) {
   try {
     const resp = await fetch("/" + mode, { method: "POST",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
+    showQuota(resp.headers);
     if (!resp.ok) {
       let detail = "";
       try { detail = (await resp.json()).detail || ""; } catch (_) {}
+      if (resp.status === 401) { showLogin("Your session has ended. Please sign in again."); return; }
+      if (resp.status === 429) throw new Error(detail || "Request limit reached. Try again later.");
       throw new Error(resp.status === 503
         ? "The service is not ready. " + detail
         : "Something went wrong (" + resp.status + "). " + detail);
@@ -300,7 +326,59 @@ $("form").addEventListener("submit", submit);
 $("clear").addEventListener("click", () => {
   $("query").value = ""; $("results").replaceChildren(); setStatus("", ""); update(); $("query").focus();
 });
+
+// Hosted version: sign in with an access code. Locally the server answers that no login is needed.
+function showQuota(headers) {
+  const left = headers.get("X-Requests-Left"), limit = headers.get("X-Requests-Limit");
+  if (left !== null) setQuota(left, limit);
+}
+function setQuota(left, limit) {
+  $("quota").textContent = left + " of " + limit + " requests left this hour";
+}
+function showLogin(message) {
+  $("form").hidden = true; $("sessionBar").hidden = true; $("login").hidden = false;
+  $("results").replaceChildren();
+  setStatus(message ? "warn" : "", message || "");
+  $("code").value = ""; $("code").focus();
+}
+function showApp(me) {
+  $("login").hidden = true; $("form").hidden = false;
+  if (me.limit !== null && me.limit !== undefined) {
+    $("sessionBar").hidden = false; setQuota(me.left, me.limit);
+  }
+  update();
+}
+async function start() {
+  let cfg = { auth_required: false, answers_enabled: true };
+  try { cfg = await (await fetch("/config")).json(); } catch (_) {}
+  if (!cfg.answers_enabled) {
+    $("answerRadio").disabled = true;
+    $("answerLabel").querySelector("small").textContent =
+      "Not available in this online demo. Search works, and the cited answers can be run locally.";
+  }
+  const me = await (await fetch("/me")).json();
+  me.signed_in ? showApp(me) : showLogin("");
+}
+$("loginForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  $("loginBtn").disabled = true; $("loginMsg").textContent = "";
+  try {
+    const resp = await fetch("/login", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: $("code").value.trim() }) });
+    if (!resp.ok) { $("loginMsg").textContent = "This access code is not valid."; return; }
+    setStatus("", "");
+    showApp(await (await fetch("/me")).json());
+  } catch (_) {
+    $("loginMsg").textContent = "Cannot reach the server.";
+  } finally { $("loginBtn").disabled = false; }
+});
+$("logout").addEventListener("click", async () => {
+  await fetch("/logout", { method: "POST" });
+  showLogin("");
+});
 update();
+start();
 </script>
 </body>
 </html>
