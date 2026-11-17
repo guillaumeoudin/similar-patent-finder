@@ -64,10 +64,23 @@
     border-radius: 999px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: .88rem;
   }
   .chip:hover { background: var(--accent-soft); }
-  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
-  @media (max-width: 640px) { .actions { grid-template-columns: 1fr; } }
-  .action { display: flex; flex-direction: column; gap: 6px; }
-  .action small { color: var(--muted); font-size: .85rem; line-height: 1.4; }
+  .models { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
+  .choice {
+    position: relative; display: block; border: 2px solid var(--border); border-radius: var(--radius);
+    padding: 12px 14px; cursor: pointer; background: var(--surface);
+  }
+  .choice input { position: absolute; opacity: 0; pointer-events: none; }
+  .choice b { display: block; }
+  .choice small { color: var(--muted); font-size: .85rem; line-height: 1.4; display: block; margin-top: 2px; }
+  .choice .dot { float: right; width: 16px; height: 16px; border: 2px solid var(--border); border-radius: 50%; margin-left: 8px; }
+  .choice.on { border-color: var(--accent); background: var(--accent-soft); }
+  .choice.on .dot { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
+  .choice:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .choice.off { opacity: .55; cursor: not-allowed; }
+  .stack { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+  button.full { width: 100%; }
   .btnrow { display: flex; gap: 8px; }
   .btnrow > button:first-child { flex: 1; }
   button.primary, button.secondary {
@@ -163,7 +176,6 @@
     <select id="corpus"></select>
     <div class="dataset-info" id="datasetInfo"></div>
     <p class="dataset-desc" id="datasetDesc"></p>
-    <p class="hint" id="datasetNote"></p>
   </section>
 
   <section class="card" id="login" hidden>
@@ -192,23 +204,30 @@
     </div>
     <div class="row"><span class="hint">Try an example:</span><span class="chips" id="examples"></span></div>
 
-    <div class="actions">
-      <div class="action">
-        <div class="btnrow">
-          <button class="primary" id="goSearch" type="button" disabled>Find similar patents</button>
-          <button type="button" class="info" data-info="search" aria-expanded="false" aria-label="More information" title="More information">i</button>
-        </div>
+    <div class="models">
+      <span class="hint" id="modelsLine"></span>
+      <button type="button" class="info" data-info="models" aria-expanded="false" aria-label="More information" title="More information">i</button>
+    </div>
+
+    <div class="cards" id="modeCards" role="radiogroup" aria-label="What do you want?">
+      <label class="choice on" id="choiceSearch">
+        <input type="radio" name="mode" value="search" checked><span class="dot"></span>
+        <b>Similar patents</b>
         <small>Searches semantically and by keywords, then shows the 10 closest patents with the matching passages.</small>
-        <div class="cost" id="costSearch" role="note"></div>
-      </div>
-      <div class="action">
-        <div class="btnrow">
-          <button class="secondary" id="goExplain" type="button" disabled>Find and compare with AI</button>
-          <button type="button" class="info" data-info="explain" aria-expanded="false" aria-label="More information" title="More information">i</button>
-        </div>
+      </label>
+      <label class="choice" id="choiceAnswer">
+        <input type="radio" name="mode" value="answer"><span class="dot"></span>
+        <b>Similar patents + AI comparison</b>
         <small id="subExplain"></small>
-        <div class="cost" id="costExplain" role="note" hidden></div>
+      </label>
+    </div>
+
+    <div class="stack">
+      <div class="btnrow">
+        <button class="primary full" id="go" type="button" disabled>Find similar patents</button>
+        <button type="button" class="info" data-info="mode" aria-expanded="false" aria-label="More information" title="More information">i</button>
       </div>
+      <div class="cost" id="cost" role="note"></div>
     </div>
   </form>
 
@@ -259,6 +278,7 @@ function setStatus(kind, content) {
   box.append(banner);
 }
 
+const mode = () => document.querySelector("input[name=mode]:checked").value;
 const current = () => corpora.find((c) => c.id === $("corpus").value) || null;
 const pct = (x) => Math.max(0, Math.min(100, Math.round(x * 100)));
 const minPct = () => { const c = current(); return c && c.abstain_below ? Math.round(c.abstain_below * 100) : 0; };
@@ -291,6 +311,13 @@ const INFO = {
     para(`Runs the same search, then sends your text and the best passages to ${models.answer}. The model must give, for each close patent, a quote copied from the patent, what overlaps with your idea and what differs.`),
     para("The program then looks for every quote in the patent text, word for word, and flags any it cannot find. It is a first read of overlaps and differences before you read the patents. It does not say whether your idea is new or patentable."),
   ] : [para("Not available in this online demo, because it needs an AI model account. It can be run locally.")],
+  mode: () => (mode() === "answer" ? INFO.explain() : INFO.search()),
+  models: () => [
+    para("Search model: the model that measures how close two texts are in meaning. It turns your text and the patent passages into lists of numbers, and the closest numbers are the closest meanings. It runs on every search."),
+    para(models.answer
+      ? "Comparison model: the AI language model that writes the comparison. It runs only when you choose the AI comparison: it reads your text and the best passages, then writes what overlaps and what differs. The program checks every quote it gives."
+      : "Comparison model: not available in this online demo, because it needs an AI model account."),
+  ],
   ranking: () => [
     para("Patents are ranked by merging two rankings: one by meaning (semantic search) and one by keywords. The percentage shown on each patent is its Similarity."),
     para(`Similarity is the cosine similarity between the meaning of your text and the best matching passage of the patent, computed by ${models.embedding} and shown as a percentage. Use it to compare patents with each other: 70% is closer than 60%. It is not the probability that the patent describes your idea. The ranking combines keywords and meaning, so the percentages are not always in strict order. When even the best passage is below ${minPct()}%, the tool reports no match.`),
@@ -354,7 +381,7 @@ function renderCollection() {
     cell("Language of the patents", "English"),
   );
   $("datasetDesc").textContent = c.description;
-  $("datasetNote").textContent = models.answer
+  $("modelsLine").textContent = models.answer
     ? `Search model: ${models.embedding}. Comparison model: ${models.answer}.`
     : `Search model: ${models.embedding}.`;
   $("query").placeholder = c.placeholder;
@@ -368,6 +395,11 @@ function renderCollection() {
   $("subExplain").textContent = models.answer
     ? `Finds similar patents through semantic + keyword search then ${models.answer} writes, for each patent, what overlaps with your idea and what differs.`
     : "Not available in this online demo. Search works, and the AI comparison can be run locally.";
+  const noAnswer = !models.answer;
+  $("choiceAnswer").classList.toggle("off", noAnswer);
+  document.querySelector("input[value=answer]").disabled = noAnswer;
+  if (noAnswer) document.querySelector("input[value=search]").checked = true;
+  syncCards();
   update();
 }
 
@@ -472,7 +504,7 @@ async function submit(mode) {
   const query = $("query").value.trim();
   const c = current();
   if (!c) return;
-  $("goSearch").disabled = true; $("goExplain").disabled = true;
+  $("go").disabled = true;
   $("results").replaceChildren();
   $("resultsSection").hidden = true;
   setStatus("info", el("span", {}, el("span", { class: "spinner" }),
@@ -498,18 +530,22 @@ async function submit(mode) {
   }
 }
 
+function syncCards() {
+  $("choiceSearch").classList.toggle("on", mode() === "search");
+  $("choiceAnswer").classList.toggle("on", mode() === "answer");
+}
+
 function update() {
   const n = $("query").value.trim().length;
   $("count").textContent = n < MIN_CHARS ? `${n} characters (${MIN_CHARS} needed)` : `${n} characters`;
   $("clear").hidden = $("query").value.length === 0;
-  const ready = n >= MIN_CHARS && current() !== null;
-  $("goSearch").disabled = !ready;
-  $("goExplain").disabled = !ready || !models.answer;
+  const explain = mode() === "answer";
+  $("go").disabled = !(n >= MIN_CHARS && current() !== null && (!explain || models.answer));
+  $("go").textContent = explain ? "Find and compare with AI" : "Find similar patents";
   const tokens = n === 0 ? "100 to 500" : String(Math.max(1, Math.round(n / 4)));
-  $("costSearch").textContent = `Token use per search: about ${tokens} (${models.embedding || ""}).`;
-  $("costExplain").hidden = !models.answer;
-  $("costExplain").textContent = models.answer
-    ? `Token use per search: about ${tokens} (${models.embedding}), plus about 20,000 read and 1,000 written (${models.answer}).` : "";
+  $("cost").textContent = explain
+    ? `Token use per search: about ${tokens} (${models.embedding}), plus about 20,000 read and 1,000 written (${models.answer}).`
+    : `Token use per search: about ${tokens} (${models.embedding || ""}).`;
 }
 
 /* ---------- sign in (hosted version only) ---------- */
@@ -547,8 +583,9 @@ $("corpus").addEventListener("change", () => {
   renderCollection();
 });
 $("query").addEventListener("input", update);
-$("goSearch").addEventListener("click", () => submit("search"));
-$("goExplain").addEventListener("click", () => submit("answer"));
+$("go").addEventListener("click", () => submit(mode()));
+document.querySelectorAll("input[name=mode]").forEach((r) =>
+  r.addEventListener("change", () => { syncCards(); update(); closeInfo(); }));
 $("clear").addEventListener("click", () => {
   $("query").value = ""; $("results").replaceChildren(); $("resultsSection").hidden = true;
   setStatus("", ""); update(); $("query").focus();
