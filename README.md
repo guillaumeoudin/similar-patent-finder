@@ -1,6 +1,8 @@
-# Prior art search assistant (V1 demo)
+# Similar Patent Finder (V1 demo)
 
-A small, measured tool that finds patents close to an invention description and shows the exact passage that justifies each match.
+Prior art search over patents, with citations checked against the source text. A small, measured tool that finds patents close to an invention description and shows the exact passage that justifies each match.
+
+"Prior art" is the trade word for any earlier public document that shows an invention already exists. "Art" here means the existing technical knowledge of a field, not painting or music.
 
 This is a demonstration project, not a product. It does not give legal advice.
 
@@ -8,7 +10,7 @@ This is a demonstration project, not a product. It does not give legal advice.
 
 ## 1. The problem, in plain words
 
-Before filing a patent, a patent attorney checks that the invention does not already exist. A document that shows it already exists is called prior art.
+Before filing a patent, a patent attorney checks that the invention does not already exist. A document that shows it already exists is called prior art (in French, an antériorité).
 
 Searching by keywords misses documents that describe the same thing with other words. A "wireless charger" can be called an "inductive power transfer device".
 
@@ -64,8 +66,8 @@ The embedder and the answer model sit behind small interfaces (`Embedder`, `Answ
 You need Python 3.11 or newer and Docker.
 
 ```bash
-git clone <this repository>
-cd priorart_rag
+git clone https://github.com/guillaumeoudin/similar-patent-finder.git
+cd similar-patent-finder
 python -m venv .venv && source .venv/bin/activate   # on Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 cp .env.example .env        # then add your API keys

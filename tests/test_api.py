@@ -56,7 +56,7 @@ def test_health(client):
 def test_page_is_served(client):
     resp = client.get("/")
     assert resp.status_code == 200
-    assert "Prior Art Finder" in resp.text
+    assert "Similar Patent Finder" in resp.text
 
 
 def test_search_returns_titles_and_passages(client):
