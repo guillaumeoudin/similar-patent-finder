@@ -1,0 +1,37 @@
+[
+  {
+    "id": "wireless",
+    "lang": "en",
+    "schema": "public",
+    "patents_file": "data/processed/patents.jsonl",
+    "cpc": "H02J 50",
+    "period": [2015, 2025],
+    "evaluated": true,
+    "label": "Wireless power transfer",
+    "description": "Wireless charging of phones, vehicles and devices: coils, resonant circuits, detection of foreign metal objects.",
+    "placeholder": "For example: a charging pad that detects metal objects on its surface and reduces power to avoid heating them.",
+    "examples": [
+      ["Pad with metal detection", "A wireless charging pad that detects a metal object lying on its surface and lowers the transmitted power to avoid heating the object."],
+      ["Electric vehicle alignment", "A system that helps a driver park an electric vehicle over a ground charging coil by measuring the position of the vehicle coil and guiding the driver."],
+      ["Several coils", "A wireless charger with several transmitting coils that selects the coil with the best coupling to the receiving device and switches off the others."]
+    ]
+  },
+  {
+    "id": "coffee",
+    "lang": "en",
+    "schema": "coffee",
+    "patents_file": "data/processed/patents_coffee.jsonl",
+    "cpc": "A47J 31",
+    "period": [2015, 2025],
+    "evaluated": false,
+    "abstain_below": {"voyage": 0.563},
+    "label": "Coffee and beverage machines",
+    "description": "Machines that brew coffee and other hot drinks: capsules, pumps, grinders, milk frothers.",
+    "placeholder": "For example: a coffee machine that reads a code on the capsule and adjusts the water temperature and volume.",
+    "examples": [
+      ["Capsule recognition", "A coffee machine that reads a code on the capsule and adjusts the water temperature, pressure and volume accordingly."],
+      ["Milk frother", "A device that heats and froths milk with steam and automatically rinses its milk line after each use."],
+      ["Grinder", "A brewing machine with a built-in grinder that adjusts the grind size according to the extraction time of the previous cup."]
+    ]
+  }
+]

@@ -48,7 +48,7 @@ def hosted(monkeypatch):
     monkeypatch.setattr(
         api,
         "run_search",
-        lambda q: (SearchResult(hits=[], best_similarity=0.9, abstained=False), {}),
+        lambda q, c=None: (SearchResult(hits=[], best_similarity=0.9, abstained=False), {}),
     )
     return TestClient(api.app)
 
@@ -103,13 +103,13 @@ def test_without_hosted_mode_nothing_changes(monkeypatch):
     monkeypatch.setattr(
         api,
         "run_search",
-        lambda q: (SearchResult(hits=[], best_similarity=0.9, abstained=False), {}),
+        lambda q, c=None: (SearchResult(hits=[], best_similarity=0.9, abstained=False), {}),
     )
     assert TestClient(api.app).post("/search", json={"query": QUERY}).status_code == 200
 
 
 def test_a_failed_search_is_refunded(hosted, monkeypatch):
-    def broken(query):
+    def broken(query, corpus=None):
         raise api.HTTPException(status_code=503, detail="down")
 
     monkeypatch.setattr(api, "run_search", broken)

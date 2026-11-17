@@ -9,22 +9,21 @@ from pathlib import Path
 from priorart.answer import answer_query, make_answerer
 from priorart.chunking import chunk_patent
 from priorart.config import Settings, load_settings
+from priorart.corpora import Corpus, get_corpus, load_corpora
 from priorart.embeddings import estimate_tokens, make_embedder
 from priorart.search import hybrid_search
 from priorart.store import Store
 from priorart.vectors import load_vectors, save_vectors
 
-PATENTS_FILE = Path("data/processed/patents.jsonl")
 
-
-def load_patents() -> list[dict]:
-    with PATENTS_FILE.open(encoding="utf-8") as f:
+def load_patents(corpus: Corpus) -> list[dict]:
+    with Path(corpus.patents_file).open(encoding="utf-8") as f:
         return [json.loads(line) for line in f]
 
 
-def cmd_embed(settings: Settings, out: Path) -> None:
+def cmd_embed(settings: Settings, corpus: Corpus, out: Path) -> None:
     """Compute the vectors for the whole corpus and save them in a folder (no database needed)."""
-    patents = load_patents()
+    patents = load_patents(corpus)
     chunks = [c for p in patents for c in chunk_patent(p)]
     embedder = make_embedder(settings)
     vectors: list[list[float]] = []
@@ -36,8 +35,10 @@ def cmd_embed(settings: Settings, out: Path) -> None:
     print(f"saved {len(chunks)} vectors from {embedder.name} to {out}")
 
 
-def cmd_index(settings: Settings, confirmed: bool, reset: bool, vectors_dir: Path | None) -> None:
-    patents = load_patents()
+def cmd_index(
+    settings: Settings, corpus: Corpus, confirmed: bool, reset: bool, vectors_dir: Path | None
+) -> None:
+    patents = load_patents(corpus)
     chunks = [c for p in patents for c in chunk_patent(p)]
     tokens = estimate_tokens([c.text for c in chunks])
     print(f"{len(patents)} patents, {len(chunks)} chunks, about {tokens:,} tokens")
@@ -65,7 +66,7 @@ def cmd_index(settings: Settings, confirmed: bool, reset: bool, vectors_dir: Pat
             print("nothing was sent. Re-run with --yes to embed and store.")
             return
 
-    store = Store(settings.database_url, dim)
+    store = Store(settings.database_url, dim, corpus.schema)
     if reset:
         store.reset()
     else:
@@ -89,9 +90,9 @@ def cmd_index(settings: Settings, confirmed: bool, reset: bool, vectors_dir: Pat
     print(f"done. chunks in database: {store.count_chunks()}")
 
 
-def cmd_search(settings: Settings, query: str) -> None:
+def cmd_search(settings: Settings, corpus: Corpus, query: str) -> None:
     embedder = make_embedder(settings)
-    store = Store(settings.database_url, settings.dim)
+    store = Store(settings.database_url, settings.dim, corpus.schema)
     result = hybrid_search(store, embedder, query, settings)
     if result.abstained:
         print(f"no document close enough (best similarity {result.best_similarity:.3f})")
@@ -103,9 +104,9 @@ def cmd_search(settings: Settings, query: str) -> None:
         print(f"      [{top.section} {top.position}] {top.text[:160]}")
 
 
-def cmd_answer(settings: Settings, query: str) -> None:
+def cmd_answer(settings: Settings, corpus: Corpus, query: str) -> None:
     embedder = make_embedder(settings)
-    store = Store(settings.database_url, settings.dim)
+    store = Store(settings.database_url, settings.dim, corpus.schema)
     result = hybrid_search(store, embedder, query, settings)
     answer = answer_query(query, result, make_answerer(settings))
     if answer.abstained:
@@ -145,12 +146,15 @@ def cmd_codes(settings: Settings, action: str, label: str | None, code_id: int |
 def main() -> None:
     parser = argparse.ArgumentParser(prog="priorart")
     sub = parser.add_subparsers(dest="command", required=True)
+    ids = [c.id for c in load_corpora()]
     p_index = sub.add_parser("index", help="embed the corpus and store it")
     p_index.add_argument("--yes", action="store_true", help="confirm: send texts to the embedder")
     p_index.add_argument("--reset", action="store_true", help="drop and recreate the tables")
     p_index.add_argument("--vectors", type=Path, help="folder made by `priorart embed`")
+    p_index.add_argument("--corpus", choices=ids, default=ids[0], help="which collection")
     p_embed = sub.add_parser("embed", help="compute vectors for the corpus and save them")
     p_embed.add_argument("--out", type=Path, required=True, help="folder to write")
+    p_embed.add_argument("--corpus", choices=ids, default=ids[0], help="which collection")
     p_codes = sub.add_parser("codes", help="manage invite codes of a hosted version")
     p_codes.add_argument("action", choices=["create", "list", "revoke"])
     p_codes.add_argument("--label", help="who the code is for (create)")
@@ -158,19 +162,20 @@ def main() -> None:
     for name in ("search", "answer"):
         p = sub.add_parser(name)
         p.add_argument("query", help="description of the invention")
+        p.add_argument("--corpus", choices=ids, default=ids[0], help="which collection")
     args = parser.parse_args()
 
     settings = load_settings()
     if args.command == "embed":
-        cmd_embed(settings, args.out)
+        cmd_embed(settings, get_corpus(args.corpus), args.out)
     elif args.command == "index":
-        cmd_index(settings, args.yes, args.reset, args.vectors)
+        cmd_index(settings, get_corpus(args.corpus), args.yes, args.reset, args.vectors)
     elif args.command == "codes":
         cmd_codes(settings, args.action, args.label, args.code_id)
     elif args.command == "search":
-        cmd_search(settings, args.query)
+        cmd_search(settings, get_corpus(args.corpus), args.query)
     else:
-        cmd_answer(settings, args.query)
+        cmd_answer(settings, get_corpus(args.corpus), args.query)
 
 
 if __name__ == "__main__":

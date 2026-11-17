@@ -86,10 +86,18 @@ def build_patents(raw_dir: Path, ids: set[str]) -> dict[str, dict]:
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Prepare the patents of one collection")
+    parser.add_argument(
+        "--ids", default="eval/dataset/split.json", help="file with a 'corpus' list"
+    )
+    parser.add_argument("--out", default="data/processed/patents.jsonl")
+    args = parser.parse_args()
     root = Path(".")
-    ids = load_corpus_ids(root / "eval/dataset/split.json")
+    ids = load_corpus_ids(root / args.ids)
     patents = build_patents(root / "data/raw", ids)
-    out = root / "data/processed/patents.jsonl"
+    out = root / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
         for pid in sorted(patents):

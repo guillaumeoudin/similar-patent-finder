@@ -29,6 +29,15 @@ class FakeStore:
     def patent_titles(self, ids):
         return {i: f"Title {i}" for i in ids}
 
+    def patent_info(self, ids):
+        return {i: (f"Title {i}", "2021-05-04") for i in ids}
+
+    def similarities(self, vector, chunk_ids):
+        return {c: 0.8 for c in chunk_ids}
+
+    def count_patents(self):
+        return 42
+
 
 class FakeAnswerer:
     def __init__(self, excerpt):
@@ -42,7 +51,7 @@ class FakeAnswerer:
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setattr(api, "get_engine", lambda: (FakeEmbedder(), FakeStore()))
+    monkeypatch.setattr(api, "get_engine", lambda corpus: (FakeEmbedder(), FakeStore()))
     return TestClient(api.app)
 
 
@@ -63,7 +72,9 @@ def test_search_returns_titles_and_passages(client):
     body = client.post("/search", json=QUERY).json()
     assert body["abstained"] is False
     hit = body["hits"][0]
-    assert hit["patent_id"] == "7" and hit["title"] == "Title 7"
+    assert hit["patent_id"] == "7" and hit["title"] == "Title 7" and hit["year"] == "2021"
+    assert hit["similarity"] == pytest.approx(0.9)
+    assert hit["passages"][0]["similarity"] == pytest.approx(0.9)
     assert hit["passages"][0]["text"] == PASSAGE
     assert "not legal advice" in body["disclaimer"]
 
@@ -91,10 +102,38 @@ def test_answer_with_invented_quote_is_flagged(client, monkeypatch):
 
 
 def test_backend_down_gives_503(monkeypatch):
-    def boom():
+    def boom(corpus):
         raise RuntimeError("MISTRAL_API_KEY is not set")
 
     monkeypatch.setattr(api, "get_engine", boom)
     resp = TestClient(api.app).post("/search", json=QUERY)
     assert resp.status_code == 503
     assert "MISTRAL_API_KEY" in resp.json()["detail"]
+
+
+def test_corpora_are_listed_by_language_with_their_size(client):
+    body = client.get("/corpora", params={"lang": "en"}).json()
+    assert [c["id"] for c in body["corpora"]][0] == "wireless"
+    assert body["corpora"][0]["patents"] == 42 and body["corpora"][0]["cpc"] == "H02J 50"
+    assert body["models"]["embedding"]
+    assert client.get("/corpora", params={"lang": "xx"}).json()["corpora"] == []
+
+
+def test_unknown_collection_is_refused(client):
+    resp = client.post("/search", json={**QUERY, "corpus": "nope"})
+    assert resp.status_code == 400
+
+
+def test_french_answers_ask_the_model_for_french(client, monkeypatch):
+    seen = {}
+
+    class Spy(FakeAnswerer):
+        def generate(self, system, user):
+            seen["user"] = user
+            return super().generate(system, user)
+
+    monkeypatch.setattr(api, "get_answerer", lambda: Spy("a transmit coil and a metal object"))
+    client.post("/answer", json={**QUERY, "lang": "fr"})
+    assert "in French" in seen["user"]
+    client.post("/answer", json=QUERY)
+    assert "in French" not in seen["user"]

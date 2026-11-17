@@ -39,6 +39,8 @@ class Hit:
     patent_id: str
     score: float  # best fused chunk score for this patent
     chunks: list[ChunkRow] = field(default_factory=list)  # best chunks first
+    similarity: float | None = None  # best cosine similarity among the chunks shown
+    chunk_similarity: dict[str, float] = field(default_factory=dict)  # per chunk id
 
 
 @dataclass
@@ -94,10 +96,23 @@ def hybrid_search(
     exclude_patent_id: str | None = None,
     max_chunks_per_patent: int = 3,
     mode: str = "hybrid",
+    with_similarity: bool = False,
 ) -> SearchResult:
+    """Search the collection. `with_similarity` adds the cosine similarity of every chunk
+    shown, which the web page displays. It costs one more query and changes no ranking."""
     vector = embedder.embed([query], kind="query")[0]
     by_vector = store.vector_search(vector, settings.candidates, exclude_patent_id)
     by_keyword = store.keyword_search(query, settings.candidates, exclude_patent_id)
     hits = fuse(by_vector, by_keyword, settings.rrf_k, settings.top_k, max_chunks_per_patent, mode)
     best_sim = max((r.similarity or 0.0 for r in by_vector), default=0.0)
+    if with_similarity:
+        known = {r.chunk_id: r.similarity for r in by_vector if r.similarity is not None}
+        missing = [c.chunk_id for h in hits for c in h.chunks if c.chunk_id not in known]
+        if missing:
+            known.update(store.similarities(vector, missing))  # type: ignore[attr-defined]
+        for h in hits:
+            h.chunk_similarity = {
+                c.chunk_id: known[c.chunk_id] for c in h.chunks if c.chunk_id in known
+            }
+            h.similarity = max(h.chunk_similarity.values(), default=None)
     return SearchResult(hits, best_sim, abstained=best_sim < settings.abstain_below)

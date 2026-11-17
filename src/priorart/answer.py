@@ -185,12 +185,22 @@ def check_items(items: list[Item], sources: dict[str, str]) -> tuple[list[Item],
     return good, bad
 
 
-def answer_query(query: str, result: SearchResult, answerer: Answerer) -> Answer:
+FRENCH_NOTE = (
+    '\n\nWrite the values of the fields "close" and "different" in French. '
+    'The "excerpt" must stay exactly as it is in the passage, in its original language.'
+)
+
+
+def answer_query(
+    query: str, result: SearchResult, answerer: Answerer, language: str = "en"
+) -> Answer:
     if result.abstained or not result.hits:
         return Answer(abstained=True)
     passages, sources = format_passages(result)
     system = load_prompt("answer_v1_system.md")
     user = load_prompt("answer_v1_user.md").format(query=query, passages=passages)
+    if language == "fr":
+        user += FRENCH_NOTE
     raw, tokens_in, tokens_out = answerer.generate(system, user)
     answer = Answer(raw=raw, input_tokens=tokens_in, output_tokens=tokens_out)
     try:

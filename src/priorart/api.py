@@ -10,6 +10,7 @@ against a request limit (see access.py).
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import time
 from pathlib import Path
@@ -21,8 +22,9 @@ from pydantic import BaseModel, Field
 from priorart.access import SESSION_SECONDS, AccessControl, make_session, read_session
 from priorart.answer import answer_query, make_answerer
 from priorart.config import load_settings
+from priorart.corpora import Corpus, get_corpus, load_corpora
 from priorart.embeddings import make_embedder
-from priorart.search import SearchResult, hybrid_search
+from priorart.search import hybrid_search
 from priorart.store import Store
 
 STATIC = Path(__file__).parent / "static"
@@ -39,6 +41,8 @@ log = logging.getLogger("priorart")
 
 class QueryRequest(BaseModel):
     query: str = Field(min_length=20, max_length=20000)
+    corpus: str | None = None  # collection id, the first one when omitted
+    lang: str = Field(default="en", pattern="^(en|fr)$")  # language of the written comparison
 
 
 class LoginRequest(BaseModel):
@@ -93,12 +97,27 @@ def guard(kind: str):
     return check
 
 
-def get_engine():
-    """Create the embedder and the database connection on first use."""
-    if "store" not in _state:
+def resolve_corpus(corpus_id: str | None) -> Corpus:
+    try:
+        return get_corpus(corpus_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail="Unknown collection.") from exc
+
+
+def settings_for(corpus: Corpus):
+    """The settings, with this collection's own abstention cutoff when it has one."""
+    own = (corpus.abstain_below or {}).get(_settings.embedder)
+    return dataclasses.replace(_settings, abstain_below=own) if own is not None else _settings
+
+
+def get_engine(corpus: Corpus):
+    """Create the embedder, and the database connection of this collection, on first use."""
+    if "embedder" not in _state:
         _state["embedder"] = make_embedder(_settings)
-        _state["store"] = Store(_settings.database_url, _settings.dim)
-    return _state["embedder"], _state["store"]
+    stores = _state.setdefault("stores", {})
+    if corpus.id not in stores:
+        stores[corpus.id] = Store(_settings.database_url, _settings.dim, corpus.schema)
+    return _state["embedder"], stores[corpus.id]
 
 
 def get_answerer():
@@ -107,21 +126,25 @@ def get_answerer():
     return _state["answerer"]
 
 
-def run_search(query: str) -> tuple[SearchResult, dict[str, str]]:
+def run_search(query: str, corpus_id: str | None = None):
+    """Search one collection. Returns the result and {patent_id: (title, grant date)}."""
+    corpus = resolve_corpus(corpus_id)
     last: Exception | None = None
     for _attempt in (1, 2):
         try:
-            embedder, store = get_engine()
-            result = hybrid_search(store, embedder, query, _settings)
-            titles = store.patent_titles([h.patent_id for h in result.hits])
-            return result, titles
+            embedder, store = get_engine(corpus)
+            result = hybrid_search(
+                store, embedder, query, settings_for(corpus), with_similarity=True
+            )
+            info = store.patent_info([h.patent_id for h in result.hits])
+            return result, info
         except RuntimeError as exc:  # for example a missing API key
             log.error("search failed: %s", exc)
             raise HTTPException(status_code=503, detail=_public_error(exc)) from exc
         except Exception as exc:
             last = exc
             _state.pop("embedder", None)  # a serverless database may have dropped the connection
-            _state.pop("store", None)
+            _state.pop("stores", None)
     log.error("search backend unavailable: %s", last)
     raise HTTPException(status_code=503, detail=_public_error(last))
 
@@ -154,6 +177,46 @@ def config() -> dict:
         "auth_required": _settings.auth_required,
         "answers_enabled": answers_enabled(),
         "limit_per_hour": _settings.rate_limit_per_hour,
+    }
+
+
+@app.get("/corpora")
+def corpora(lang: str = "en") -> dict:
+    """The collections shown in the page for a language, with their size and cutoff."""
+    out = []
+    for c in load_corpora():
+        if c.lang != lang:
+            continue
+        try:
+            count = get_engine(c)[1].count_patents()
+        except Exception as exc:
+            log.error("count failed for %s: %s", c.id, exc)
+            count = None
+        out.append(
+            {
+                "id": c.id,
+                "label": c.label,
+                "description": c.description,
+                "placeholder": c.placeholder,
+                "examples": c.examples,
+                "cpc": c.cpc,
+                "period": list(c.period),
+                "evaluated": c.evaluated,
+                "patents": count,
+                "abstain_below": settings_for(c).abstain_below,
+            }
+        )
+    embedding = {
+        "voyage": _settings.voyage_model,
+        "local": _settings.local_embed_model,
+    }.get(_settings.embedder, _settings.embed_model)
+    return {
+        "lang": lang,
+        "corpora": out,
+        "models": {
+            "embedding": embedding,
+            "answer": _settings.answer_model if answers_enabled() else None,
+        },
     }
 
 
@@ -198,7 +261,7 @@ def me(request: Request) -> dict:
 @app.post("/search", dependencies=[Depends(guard("search"))])
 def search(req: QueryRequest, request: Request) -> dict:
     try:
-        result, titles = run_search(req.query)
+        result, info = run_search(req.query, req.corpus)
     except HTTPException:
         _refund(request)
         raise
@@ -208,10 +271,18 @@ def search(req: QueryRequest, request: Request) -> dict:
         "hits": [
             {
                 "patent_id": h.patent_id,
-                "title": titles.get(h.patent_id, ""),
+                "title": info.get(h.patent_id, ("", ""))[0],
+                "year": info.get(h.patent_id, ("", ""))[1][:4],
                 "score": h.score,
+                "similarity": h.similarity,
                 "passages": [
-                    {"id": c.chunk_id, "section": c.section, "position": c.position, "text": c.text}
+                    {
+                        "id": c.chunk_id,
+                        "section": c.section,
+                        "position": c.position,
+                        "text": c.text,
+                        "similarity": h.chunk_similarity.get(c.chunk_id),
+                    }
                     for c in h.chunks
                 ],
             }
@@ -224,8 +295,8 @@ def search(req: QueryRequest, request: Request) -> dict:
 @app.post("/answer", dependencies=[Depends(guard("answer"))])
 def answer(req: QueryRequest, request: Request) -> dict:
     try:
-        result, titles = run_search(req.query)
-        ans = answer_query(req.query, result, get_answerer())
+        result, info = run_search(req.query, req.corpus)
+        ans = answer_query(req.query, result, get_answerer(), language=req.lang)
     except HTTPException:
         _refund(request)
         raise
@@ -233,11 +304,15 @@ def answer(req: QueryRequest, request: Request) -> dict:
         _refund(request)
         log.error("answer failed: %s", exc)
         raise HTTPException(status_code=503, detail=_public_error(exc)) from exc
+    similarity = {h.patent_id: h.similarity for h in result.hits}
 
     def item(i, verified: bool) -> dict:
+        title, date = info.get(i.patent_id, ("", ""))
         return {
             "patent_id": i.patent_id,
-            "title": titles.get(i.patent_id, ""),
+            "title": title,
+            "year": date[:4],
+            "similarity": similarity.get(i.patent_id),
             "passage_id": i.passage_id,
             "excerpt": i.excerpt,
             "close": i.close,

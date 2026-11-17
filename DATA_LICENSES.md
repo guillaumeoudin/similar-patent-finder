@@ -18,7 +18,8 @@
 ## Changes made to the data
 
 - Filtered to CPC group H02J50 and grant years 2015 to 2025.
-- Sampled a corpus of 500 patents (fixed seed).
+- Sampled a corpus of 500 patents (fixed seed) for the evaluation.
+- A second, illustration only collection of random patents from CPC group A47J31 (coffee and beverage machines), granted 2015 to 2025, is used by the web demo. It comes from the same PatentsView tables, with the same statements above, and `corpora/coffee_ids.json` lists its patent numbers only.
 - Abstract and claims are split into chunks; no other transformation of the text.
 - The description sections are not used in V1.
 
