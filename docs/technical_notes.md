@@ -46,3 +46,41 @@ Search takes 0.38 s per query with the local model and 1.1 s with Voyage, networ
 ## Candidate depth
 
 The development numbers hinted that 100 candidates per ranking helped Voyage a little. I kept 50 for both models and did not re-tune after seeing the test set.
+
+## Cited answers, full table
+
+| | With e5-small | With voyage-4-lite |
+|---|---|---|
+| Quotes the model gave | 101 | 125 |
+| Quotes found word for word in the patent | 100 | 124 |
+| Answers flagged unreliable | 1 of 50 | 1 of 50 |
+| Patents where the model gave no quote at all | 7 | 2 |
+| Time for search plus answer | about 10 s | about 11 s |
+
+In each run one quote was not found. The program dropped it and flagged the answer. I did not look into why the model produced it. I read the comments themselves by hand on one example only.
+
+## Declining to answer, full table
+
+| | With e5-small | With voyage-4-lite |
+|---|---|---|
+| Real test patents wrongly declined | 0 of 50 | 0 of 50 |
+| Unrelated descriptions correctly declined | 10 of 10 | 9 of 10 |
+
+20 descriptions of things not in the collection were written. The first ten, plainly off topic, set the cutoff. The other ten (wired charging, solar inverters and similar) were kept aside only to be reported.
+
+## Keyword search
+
+BM25 is a refinement of TF-IDF: it weighs a word by how often it appears in a document and how rare it is across the collection, with a correction for document length. The database search uses PostgreSQL full text search with `ts_rank`, which looks at term frequency but does not weigh rare words.
+
+## Running it, details
+
+- The embedding model is chosen with `EMBEDDER` in `.env`. `local` runs an open model on your machine, needs no key and is the default. `voyage` and `mistral` call a web service and need a key. The open model and Voyage are measured. Mistral is implemented but was never run, because its free plan no longer gives API access.
+- A Voyage account without a payment method is limited to 3 requests and 10,000 tokens a minute, too little to index the collection at a normal pace. `VOYAGE_RPM` and `VOYAGE_TPM` make the code slow down to fit.
+- `priorart index` alone prints the size and a cost estimate and sends nothing.
+- The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default), or an API key (`ANSWERER=api`, needs `pip install -e ".[anthropic]"`). The command line mode cannot set the temperature, so two runs can differ.
+- The web page listens on the local machine only, at http://127.0.0.1:8000. Embeddings can also be computed on another machine and copied over, see `docs/gpu_machine.md`.
+- Tests and the development evaluation: `ruff check .`, `pytest -q` (58 tests, one file needs the database), `python eval/run_eval.py --set dev`.
+
+## Repository layout
+
+`src/priorart`: `ingest.py` and `chunking.py` prepare texts, `embeddings.py` and `store.py` handle the numbers and PostgreSQL, `search.py` merges rankings, `answer.py` writes the answer and checks every quote, `cli.py` and `api.py` are the entry points, `static/` is the web page. `eval/` has the evaluation scripts and every log in `eval/results/`. `prompts/` holds the prompts as text files.
