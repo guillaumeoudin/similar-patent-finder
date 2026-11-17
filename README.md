@@ -24,15 +24,18 @@ Patent texts are cut into pieces, one per abstract and one per claim, and each p
 
 A search runs twice, once by keywords and once by vectors, and the two rankings are merged with reciprocal rank fusion. The best passages go to a language model, which must answer in JSON with an excerpt copied from a passage. The program then looks for each excerpt in the passage it came from, after normalizing spaces and quote styles. An excerpt that is not found is dropped and the whole answer is flagged as unreliable. If even the best vector similarity is under a threshold, the tool abstains.
 
+Preparing the collection, done once:
+
 ```mermaid
 flowchart LR
-    A[Patent tables] --> B[Clean records]
-    B --> C[Chunks by section]
-    C --> D[Embedder]
-    D --> E[(PostgreSQL + pgvector)]
-    C --> E
-    Q[Invention description] --> F[Hybrid search]
-    E --> F
+    A[Patent tables] --> B[Clean records] --> C[Chunks] --> D[Embedder] --> E[(Database)]
+```
+
+Answering a description:
+
+```mermaid
+flowchart TB
+    Q[Invention description] --> F[Hybrid search in the database]
     F --> G{Close enough?}
     G -- no --> H[No document close enough]
     G -- yes --> I[Answer model]

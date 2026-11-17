@@ -75,7 +75,7 @@ def main() -> None:
            "embedder": embedder.name})  # fmt: skip
 
     r5, r10, rr, latencies = [], [], [], []
-    abstained_pos = verified = total_items = unreliable = 0
+    abstained_pos = verified = total_items = unreliable = answer_errors = 0
     for query_id, expected in split[args.set].items():
         text = query_text(patents[query_id])
         start = time.perf_counter()
@@ -86,15 +86,20 @@ def main() -> None:
             "best_similarity": result.best_similarity, "abstained": result.abstained,
         }  # fmt: skip
         if answerer is not None:
-            ans = answer_query(text, result, answerer)
-            record["answer"] = {
-                "reliable": ans.reliable, "verified": len(ans.items),
-                "rejected": len(ans.rejected),
-                "tokens_in": ans.input_tokens, "tokens_out": ans.output_tokens,
-            }  # fmt: skip
-            verified += len(ans.items)
-            total_items += len(ans.items) + len(ans.rejected)
-            unreliable += not ans.reliable
+            try:
+                ans = answer_query(text, result, answerer)
+            except Exception as exc:  # a failed call must not stop the whole run
+                record["answer_error"] = str(exc)[:300]
+                answer_errors += 1
+            else:
+                record["answer"] = {
+                    "reliable": ans.reliable, "verified": len(ans.items),
+                    "rejected": len(ans.rejected),
+                    "tokens_in": ans.input_tokens, "tokens_out": ans.output_tokens,
+                }  # fmt: skip
+                verified += len(ans.items)
+                total_items += len(ans.items) + len(ans.rejected)
+                unreliable += not ans.reliable
         record["seconds"] = time.perf_counter() - start
         latencies.append(record["seconds"])
         rel = set(expected)
@@ -120,6 +125,7 @@ def main() -> None:
         "abstention_rate_on_off_topic": abstained_neg / max(1, len(negatives)),
         "citation_verified_rate": (verified / total_items) if total_items else None,
         "unreliable_answers": unreliable if answerer else None,
+        "answer_errors": answer_errors if answerer else None,
         "mean_seconds_per_query": mean(latencies),
         "embedder_tokens_used": getattr(embedder, "tokens_used", 0),
     }  # fmt: skip
