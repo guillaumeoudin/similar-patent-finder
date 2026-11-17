@@ -128,6 +128,18 @@ Not run yet. This table will be filled from the logs in `eval/results/`.
 | Mean latency per query | pending | pending |
 | Mean cost per query | pending | pending |
 
+### Keyword-only baseline (measured)
+
+Plain keyword search (BM25, no database, no AI model), development set of 20 queries, 9,315 chunks. Script: `eval/baseline_bm25.py`. Log: `eval/results/`.
+
+| Metric | Keyword only, development set |
+|---|---|
+| Recall at 5 | 0.41 |
+| Recall at 10 | 0.49 |
+| Mean reciprocal rank | 0.68 |
+
+The hybrid search has to beat these numbers to justify its extra parts. With 20 queries, a difference of a few points is noise.
+
 ## 8. Failure analysis
 
 Pending. After the test run, 15 failed cases will be read by hand and sorted by cause.
