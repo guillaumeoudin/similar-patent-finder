@@ -11,7 +11,7 @@
     "evaluated": true,
     "label": "Wireless power transfer",
     "description": "Wireless charging of phones, vehicles and devices: coils, resonant circuits, detection of foreign metal objects.",
-    "placeholder": "For example: a charging pad that detects metal objects on its surface and reduces power to avoid heating them.",
+    "placeholder": "A charging pad that detects metal objects on its surface and reduces power to avoid heating them.",
     "examples": [
       [
         "Pad with metal detection",
@@ -42,7 +42,7 @@
     },
     "label": "Coffee and beverage machines",
     "description": "Machines that brew coffee and other hot drinks: capsules, pumps, grinders, milk frothers.",
-    "placeholder": "For example: a coffee machine that reads a code on the capsule and adjusts the water temperature and volume.",
+    "placeholder": "A coffee machine that reads a code on the capsule and adjusts the water temperature and volume.",
     "examples": [
       [
         "Capsule recognition",
