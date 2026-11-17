@@ -71,7 +71,7 @@ priorart search "a charging pad with a coil that detects metal objects"
 priorart answer "a charging pad with a coil that detects metal objects"
 ```
 
-The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default), or an API key (`ANSWERER=api`). The command line mode cannot set the temperature, so two runs can differ.
+The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default), or an API key (`ANSWERER=api`, which needs `pip install -e ".[anthropic]"`). The command line mode cannot set the temperature, so two runs can differ.
 
 The web page needs `pip install -e ".[api]"`, then `uvicorn priorart.api:app`, and opens at http://127.0.0.1:8000. It listens on the local machine only and has no login, so do not expose it to a network. The embeddings can also be computed on a different machine and copied over, see `docs/gpu_machine.md`.
 

@@ -44,8 +44,6 @@ class Settings:
     answerer: str = "claude-code"  # "claude-code" (your Claude subscription) or "api" (API key)
     anthropic_api_key: str = ""
     answer_model: str = "claude-sonnet-5-5"
-    answer_price_in_per_m: float = 0.0
-    answer_price_out_per_m: float = 0.0
     # search
     rrf_k: int = 60
     candidates: int = 50  # chunks fetched from each ranking before fusion
@@ -88,8 +86,6 @@ def load_settings() -> Settings:
         answerer=os.environ.get("ANSWERER", d.answerer),
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
         answer_model=os.environ.get("ANSWER_MODEL", d.answer_model),
-        answer_price_in_per_m=_f("ANSWER_PRICE_IN_PER_M", d.answer_price_in_per_m),
-        answer_price_out_per_m=_f("ANSWER_PRICE_OUT_PER_M", d.answer_price_out_per_m),
         rrf_k=_i("RRF_K", d.rrf_k),
         candidates=_i("CANDIDATES", d.candidates),
         top_k=_i("TOP_K", d.top_k),

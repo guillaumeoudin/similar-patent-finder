@@ -1,14 +1,18 @@
 [project]
 name = "priorart"
 version = "0.1.0"
-description = "Similar patent finder: prior art search with verified citations and a measured evaluation (demo project)"
+description = "Finds patents close to an invention description and quotes the exact passage, with every quote checked against the patent text"
 requires-python = ">=3.11"
-dependencies = ["httpx>=0.27", "psycopg[binary]>=3.2", "pgvector>=0.3", "anthropic>=0.40"]
+dependencies = ["httpx>=0.27", "psycopg[binary]>=3.2", "pgvector>=0.3"]
+
+[project.scripts]
+priorart = "priorart.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
 local = ["sentence-transformers==3.3.1", "transformers==4.46.3", "numpy<2"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
+anthropic = ["anthropic>=0.40"]
 
 [build-system]
 requires = ["setuptools>=68"]

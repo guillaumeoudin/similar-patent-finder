@@ -68,7 +68,10 @@ class ClaudeAnswerer:
     def __init__(self, settings: Settings):
         if not settings.anthropic_api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
-        import anthropic
+        try:
+            import anthropic
+        except ImportError as exc:
+            raise RuntimeError("ANSWERER=api needs: pip install -e '.[anthropic]'") from exc
 
         self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
         self._model = settings.answer_model
