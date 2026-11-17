@@ -7,3 +7,5 @@ docs/
 .venv/
 .env*
 !.env.example
+# Vercel reads dependencies from requirements.txt only (pyproject.toml would win and lacks FastAPI)
+pyproject.toml
