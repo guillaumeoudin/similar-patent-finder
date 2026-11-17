@@ -1,0 +1,105 @@
+"""Command line: index the corpus, search it, and answer a question with checked citations."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from priorart.answer import ClaudeAnswerer, answer_query
+from priorart.chunking import chunk_patent
+from priorart.config import Settings, load_settings
+from priorart.embeddings import estimate_tokens, make_embedder
+from priorart.search import hybrid_search
+from priorart.store import Store
+
+PATENTS_FILE = Path("data/processed/patents.jsonl")
+
+
+def load_patents() -> list[dict]:
+    with PATENTS_FILE.open(encoding="utf-8") as f:
+        return [json.loads(line) for line in f]
+
+
+def cmd_index(settings: Settings, confirmed: bool, reset: bool) -> None:
+    patents = load_patents()
+    chunks = [c for p in patents for c in chunk_patent(p)]
+    tokens = estimate_tokens([c.text for c in chunks])
+    print(f"{len(patents)} patents, {len(chunks)} chunks, about {tokens:,} tokens to embed")
+    if settings.embed_price_per_m_tokens:
+        print(f"estimated cost: {tokens / 1e6 * settings.embed_price_per_m_tokens:.4f}")
+    else:
+        print("set EMBED_PRICE_PER_M_TOKENS to see a cost estimate")
+    if not confirmed:
+        print("nothing was sent. Re-run with --yes to embed and store.")
+        return
+
+    embedder = make_embedder(settings)
+    store = Store(settings.database_url, settings.dim)
+    store.reset() if reset else store.init_schema()
+    for p in patents:
+        store.add_patent(p)
+    batch = 256
+    for i in range(0, len(chunks), batch):
+        part = chunks[i : i + batch]
+        store.add_chunks(part, embedder.embed([c.text for c in part]))
+        print(f"  {min(i + batch, len(chunks))}/{len(chunks)}")
+    print(f"done. chunks in database: {store.count_chunks()}")
+
+
+def cmd_search(settings: Settings, query: str) -> None:
+    embedder = make_embedder(settings)
+    store = Store(settings.database_url, settings.dim)
+    result = hybrid_search(store, embedder, query, settings)
+    if result.abstained:
+        print(f"no document close enough (best similarity {result.best_similarity:.3f})")
+        return
+    titles = store.patent_titles([h.patent_id for h in result.hits])
+    for rank, hit in enumerate(result.hits, start=1):
+        print(f"{rank:2d}. {hit.patent_id}  score {hit.score:.4f}  {titles.get(hit.patent_id, '')}")
+        top = hit.chunks[0]
+        print(f"      [{top.section} {top.position}] {top.text[:160]}")
+
+
+def cmd_answer(settings: Settings, query: str) -> None:
+    embedder = make_embedder(settings)
+    store = Store(settings.database_url, settings.dim)
+    result = hybrid_search(store, embedder, query, settings)
+    answer = answer_query(query, result, ClaudeAnswerer(settings))
+    if answer.abstained:
+        print("no document close enough")
+        return
+    if not answer.reliable:
+        print("WARNING: unreliable answer (invalid output or unverified excerpts)")
+    for item in answer.items:
+        print(f"\npatent {item.patent_id}  (verified excerpt from {item.passage_id})")
+        print(f'  "{item.excerpt}"')
+        print(f"  close: {item.close}")
+        print(f"  different: {item.different}")
+    for item in answer.rejected:
+        print(f"\nREJECTED (excerpt not found in source): patent {item.patent_id}")
+    print("\nThis is not legal advice.")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="priorart")
+    sub = parser.add_subparsers(dest="command", required=True)
+    p_index = sub.add_parser("index", help="embed the corpus and store it")
+    p_index.add_argument("--yes", action="store_true", help="confirm: send texts to the embedder")
+    p_index.add_argument("--reset", action="store_true", help="drop and recreate the tables")
+    for name in ("search", "answer"):
+        p = sub.add_parser(name)
+        p.add_argument("query", help="description of the invention")
+    args = parser.parse_args()
+
+    settings = load_settings()
+    if args.command == "index":
+        cmd_index(settings, args.yes, args.reset)
+    elif args.command == "search":
+        cmd_search(settings, args.query)
+    else:
+        cmd_answer(settings, args.query)
+
+
+if __name__ == "__main__":
+    main()
