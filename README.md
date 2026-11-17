@@ -103,6 +103,20 @@ For abstention I wrote twenty descriptions of things that are not in the corpus.
 
 ## Results
 
+### In plain words
+
+I took 50 patents and asked each system to find the patents that the examiner had cited for them. If the examiner cited five, I count how many of the five appear in the first ten results.
+
+- **It finds about four in ten.** The best systems recover 37 to 43 percent of the cited patents in their top ten. Six in ten are missed. This is not a polished product, it is a measured starting point.
+- **Searching by meaning did not clearly beat searching by keywords.** The best model (Voyage) scores 43 percent and plain keyword search scores 37 percent. With only 50 patents, a gap that size can be luck, so I do not claim one is better.
+- **Most misses are not search errors.** I read 15 of them. Eleven were patents from the same field that the examiner cited as background, not because they describe the same invention. No tool that looks for the closest document would find those.
+- **The citations can be trusted.** Out of 226 quotes the model produced, 224 were found word for word in the cited patent. The two that were not were removed and the answer was flagged.
+- **It declines when nothing matches.** On 10 descriptions of other electrical devices that are not in the collection, it declined all 10 times with the open model and 9 times with Voyage. It never declined a real query. Ten descriptions is a small check.
+
+What I take from it: on a collection this small, the choice of model matters less than I expected. What the project does show is that the quotes can be checked and that the measurement is honest, including where it is unflattering.
+
+The tables below give the exact figures. Recall at 10 is the share of cited patents found in the first ten results. MRR (mean reciprocal rank) rewards putting a cited patent near the top: 1 means it is always first, 0.5 means second on average.
+
 ### Test set, 50 queries
 
 Every system below ran once on the test set. Recall at 10 comes with a 95 percent interval from resampling the 50 queries.
