@@ -143,6 +143,7 @@
   .sim .bar { width: 120px; height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
   .sim .bar > span { display: block; height: 100%; background: var(--accent); }
   .sim b { color: var(--text); }
+  .sim button.info { width: 22px; height: 22px; font-size: .8rem; }
   blockquote {
     margin: 10px 0 0; padding: 10px 12px; background: var(--quote); border-left: 4px solid var(--accent);
     border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere;
@@ -235,7 +236,7 @@
     <div class="results-head">
       <h2>Results</h2>
       <p class="sub" id="resultsSub"></p>
-      <div class="metric"><span>Ranking metric: <b>Similarity</b></span>
+      <div class="metric"><span>Ranking metric: <b>Reciprocal rank fusion</b> (semantic search + keyword search)</span>
         <button type="button" class="info" data-info="ranking" aria-expanded="false" aria-label="More information" title="More information">i</button></div>
     </div>
     <div id="results"></div>
@@ -302,7 +303,7 @@ const INFO = {
     ];
   },
   search: () => [
-    para(`Your text is sent to ${models.embedding}, a paid embedding service, which turns it into a list of numbers that captures its meaning. The database then finds the passages closest in meaning. At the same time it finds the passages that share your words, a keyword search that runs in the database for free. The two rankings are merged and grouped by patent.`),
+    para(`Your text is sent to ${models.embedding}, a paid embedding service, which turns it into a list of numbers for the semantic search. The database then finds the passages closest to it. At the same time it runs a keyword search, which finds the passages that share your words and runs in the database for free. The two rankings are merged and grouped by patent.`),
     para("Cost: only the embedding tokens of your text. No AI model writes anything."),
   ],
   explain: () => models.answer ? [
@@ -310,14 +311,21 @@ const INFO = {
     para("The program then looks for every quote in the patent text, word for word, and flags any it cannot find. It is a first read of overlaps and differences before you read the patents. It does not say whether your idea is new or patentable."),
   ] : [para("Not available in this online demo, because it needs an AI model account. It can be run locally.")],
   models: () => [
-    para("Search model: the model that measures how close two texts are in meaning. It turns your text and the patent passages into lists of numbers, and the closest numbers are the closest meanings. It runs on every search."),
+    para("Search model: the model behind the semantic search. It turns your text and the patent passages into lists of numbers, and the closest numbers are the closest passages. It runs on every search."),
     para(models.answer
       ? "Comparison model: the AI language model that writes the comparison. It runs only when you choose the AI comparison: it reads your text and the best passages, then writes what overlaps and what differs. The program checks every quote it gives."
       : "Comparison model: not available in this online demo, because it needs an AI model account."),
   ],
   ranking: () => [
-    para("Patents are ranked by merging two rankings: one by meaning (semantic search) and one by keywords. The percentage shown on each patent is its Similarity."),
-    para(`Similarity is the cosine similarity between the meaning of your text and the best matching passage of the patent, computed by ${models.embedding} and shown as a percentage. Use it to compare patents with each other: 70% is closer than 60%. It is not the probability that the patent describes your idea. The ranking combines keywords and meaning, so the percentages are not always in strict order. When even the best passage is below ${minPct()}%, the tool reports no match.`),
+    para("The order of the results comes from merging two rankings of the passages: one from the semantic search and one from the keyword search."),
+    para("Each passage earns points from its place in each ranking: 1 divided by (60 + its place). The points from the two rankings are added up, the passages are sorted by that total (the reciprocal rank fusion score), then grouped by patent. A patent that is well placed in both rankings beats one that is very well placed in only one."),
+    para("Example: patent A is 1st in the semantic search and 8th in the keyword search: 1/61 + 1/68 = 0.0311. Patent B is 3rd and 1st: 1/63 + 1/61 = 0.0323. B comes before A."),
+    para("The percentage shown on each patent does not decide the order. It is the Similarity from the semantic search, explained by the i next to it."),
+  ],
+  similarity: () => [
+    para(`Similarity is the cosine similarity between your text and the best matching passage of the patent, computed by ${models.embedding} for the semantic search and shown as a percentage.`),
+    para("Use it to compare patents with each other: 70% is closer than 60%. It does not decide the order of the results (see Ranking metric), and it is not the probability that the patent describes your idea."),
+    para(`When even the best passage is below ${minPct()}%, the tool reports no match.`),
   ],
 };
 
@@ -344,9 +352,12 @@ function openInfo(btn) {
   openButton = btn;
   placeInfo(btn);
 }
-document.querySelectorAll("button.info").forEach((b) => b.addEventListener("click", (ev) => { ev.preventDefault(); ev.stopPropagation(); openInfo(b); }));
 $("popoverClose").addEventListener("click", closeInfo);
-document.addEventListener("click", (ev) => { if (!$("popover").contains(ev.target)) closeInfo(); });
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button.info");
+  if (b) { ev.preventDefault(); openInfo(b); return; }
+  if (!$("popover").contains(ev.target)) closeInfo();
+});
 document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeInfo(); });
 window.addEventListener("resize", () => { if (openButton) placeInfo(openButton); });
 
@@ -411,7 +422,9 @@ function simBlock(similarity) {
   const p = pct(similarity);
   const bar = el("span", { class: "bar" }, el("span"));
   bar.firstChild.style.width = p + "%";
-  return el("span", { class: "sim" }, el("span", { text: "Similarity" }), bar, el("b", { text: p + "%" }));
+  const info = el("button", { class: "info", type: "button", "data-info": "similarity",
+    "aria-expanded": "false", "aria-label": "More information", title: "More information", text: "i" });
+  return el("span", { class: "sim" }, el("span", { text: "Similarity" }), bar, el("b", { text: p + "%" }), info);
 }
 
 function metaLine(h) {
@@ -457,7 +470,7 @@ function renderSearch(data) {
   out.replaceChildren();
   if (data.abstained || data.hits.length === 0) { noMatch(data); return; }
   setStatus("", "");
-  showResultsHeader(`${data.hits.length} patents in "${current().label}", closest first.`);
+  showResultsHeader(`${data.hits.length} patents found in "${current().label}", ranked by reciprocal rank fusion.`);
   data.hits.forEach((h, i) => {
     const card = el("article", { class: "result" });
     card.append(el("h3", {}, el("span", { class: "rank", text: String(i + 1) }), el("span", { text: h.title || "Untitled" })));
@@ -471,7 +484,7 @@ function renderAnswer(data) {
   const out = $("results");
   out.replaceChildren();
   if (data.abstained) { noMatch(data); return; }
-  showResultsHeader(`AI comparison of the closest patents in "${current().label}".`);
+  showResultsHeader(`AI comparison of the top ranked patents in "${current().label}".`);
   if (!data.reliable) setStatus("warn", "Some quotes from the AI model could not be found in the patents, so they are marked below. Treat this answer with caution.");
   else if (data.items.length === 0) setStatus("info", "The model found no close patent among the candidates.");
   else setStatus("ok", "Every quote below was found word for word in the patent text.");
