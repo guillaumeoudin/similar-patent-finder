@@ -1,6 +1,6 @@
 from priorart.config import Settings
 from priorart.metrics import mean, recall_at_k, reciprocal_rank
-from priorart.search import hybrid_search, rrf
+from priorart.search import fuse, hybrid_search, rrf
 from priorart.store import ChunkRow, or_tsquery
 
 
@@ -94,3 +94,18 @@ def test_metrics():
     assert reciprocal_rank(ranked, {"zzz"}) == 0.0
     assert mean([1.0, 0.0]) == 0.5
     assert mean([]) == 0.0
+
+
+def test_fuse_modes_keep_only_the_requested_ranking():
+    vec = [row("1:claim:1:0", "1", 0.9)]
+    kw = [row("2:claim:1:0", "2")]
+    assert [h.patent_id for h in fuse(vec, kw, 60, 10, mode="vector")] == ["1"]
+    assert [h.patent_id for h in fuse(vec, kw, 60, 10, mode="keyword")] == ["2"]
+    assert {h.patent_id for h in fuse(vec, kw, 60, 10, mode="hybrid")} == {"1", "2"}
+
+
+def test_fuse_rejects_unknown_mode():
+    import pytest
+
+    with pytest.raises(ValueError):
+        fuse([], [], 60, 10, mode="nope")

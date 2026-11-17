@@ -1,5 +1,5 @@
 from priorart.chunking import Chunk, chunk_patent, split_long_text
-from priorart.ingest import parse_dependency
+from priorart.ingest import dedupe_claims, parse_dependency
 
 
 def make_patent():
@@ -65,3 +65,10 @@ def test_parse_dependency():
 
 def test_chunk_id_format():
     assert Chunk("1", "claim", 3, 0, "t").chunk_id == "1:claim:3:0"
+
+
+def test_dedupe_claims_drops_exact_repeats_only():
+    a = {"number": 1, "text": "1. A thing.", "dependent_on": None}
+    b = {"number": 2, "text": "2. The thing of claim 1.", "dependent_on": 1}
+    different = {"number": 1, "text": "1. Another thing.", "dependent_on": None}
+    assert dedupe_claims([a, b, dict(a), different]) == [a, b, different]

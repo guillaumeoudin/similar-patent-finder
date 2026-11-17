@@ -48,20 +48,28 @@ class SearchResult:
     abstained: bool
 
 
-def hybrid_search(
-    store: SearchStore,
-    embedder: Embedder,
-    query: str,
-    settings: Settings,
-    exclude_patent_id: str | None = None,
+def fuse(
+    by_vector: list[ChunkRow],
+    by_keyword: list[ChunkRow],
+    rrf_k: int,
+    top_k: int,
     max_chunks_per_patent: int = 3,
-) -> SearchResult:
-    vector = embedder.embed([query], kind="query")[0]
-    by_vector = store.vector_search(vector, settings.candidates, exclude_patent_id)
-    by_keyword = store.keyword_search(query, settings.candidates, exclude_patent_id)
+    mode: str = "hybrid",
+) -> list[Hit]:
+    """Merge the two chunk rankings and group the result by patent.
+
+    mode "vector" or "keyword" keeps only one ranking. It exists to measure each part alone.
+    """
+    if mode == "vector":
+        by_keyword = []
+    elif mode == "keyword":
+        by_vector = []
+    elif mode != "hybrid":
+        raise ValueError(f"unknown mode: {mode}")
 
     rows = {r.chunk_id: r for r in by_vector + by_keyword}
-    fused = rrf([[r.chunk_id for r in by_vector], [r.chunk_id for r in by_keyword]], settings.rrf_k)
+    rankings = [[r.chunk_id for r in by_vector], [r.chunk_id for r in by_keyword]]
+    fused = rrf(rankings, rrf_k)
 
     per_patent: dict[str, list[tuple[float, ChunkRow]]] = {}
     for chunk_id, score in fused.items():
@@ -75,7 +83,20 @@ def hybrid_search(
             Hit(patent_id, scored[0][0], [row for _, row in scored[:max_chunks_per_patent]])
         )
     hits.sort(key=lambda h: h.score, reverse=True)
-    hits = hits[: settings.top_k]
+    return hits[:top_k]
 
+
+def hybrid_search(
+    store: SearchStore,
+    embedder: Embedder,
+    query: str,
+    settings: Settings,
+    exclude_patent_id: str | None = None,
+    max_chunks_per_patent: int = 3,
+) -> SearchResult:
+    vector = embedder.embed([query], kind="query")[0]
+    by_vector = store.vector_search(vector, settings.candidates, exclude_patent_id)
+    by_keyword = store.keyword_search(query, settings.candidates, exclude_patent_id)
+    hits = fuse(by_vector, by_keyword, settings.rrf_k, settings.top_k, max_chunks_per_patent)
     best_sim = max((r.similarity or 0.0 for r in by_vector), default=0.0)
     return SearchResult(hits, best_sim, abstained=best_sim < settings.abstain_below)

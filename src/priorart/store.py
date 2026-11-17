@@ -43,11 +43,13 @@ CREATE INDEX IF NOT EXISTS chunks_embedding_idx
 """
 
 
-def or_tsquery(text: str, max_terms: int = 60) -> str:
+def or_tsquery(text: str, max_terms: int = 1000) -> str:
     """Build an OR query from free text, for example 'coil | charging | power'.
 
     A plain AND query is too strict for a long invention description: no chunk would
     contain every word. With OR, the ranking function decides which chunks match best.
+    Every term is kept: cutting the query to its first terms lost about a fifth of the recall
+    on the development set.
     """
     seen: list[str] = []
     for token in re.findall(r"[a-z0-9]+", text.lower()):
@@ -128,7 +130,7 @@ class Store:
             "SELECT chunk_id, patent_id, section, position, text FROM chunks "
             "WHERE tsv @@ to_tsquery('english', %s) "
             "AND (%s::text IS NULL OR patent_id <> %s) "
-            "ORDER BY ts_rank_cd(tsv, to_tsquery('english', %s)) DESC LIMIT %s",
+            "ORDER BY ts_rank(tsv, to_tsquery('english', %s), 1) DESC LIMIT %s",
             (tsq, exclude_patent_id, exclude_patent_id, tsq, limit),
         ).fetchall()
         return [ChunkRow(*r) for r in rows]

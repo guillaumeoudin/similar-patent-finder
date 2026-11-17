@@ -4,7 +4,7 @@ A small, measured tool that finds patents close to an invention description and 
 
 This is a demonstration project, not a product. It does not give legal advice.
 
-**Status:** data, chunking, search, answer and evaluation code are written and unit tested. The database indexing and the evaluation runs have not been executed yet, so this README contains no result numbers. They will be added only from real runs.
+**Status:** data, chunking, indexing, search and evaluation run end to end on the development set with an open embedding model. The test set has not been run. The answer step (cited comparison) is written and unit tested but has not been run with a real language model yet.
 
 ## 1. The problem, in plain words
 
@@ -132,7 +132,7 @@ Ten off-topic descriptions test that the tool abstains when nothing is close.
 
 ## 7. Results
 
-Not run yet. This table will be filled from the logs in `eval/results/`.
+Test set: not run yet. It will be run once, at the end, from the logs in `eval/results/`. Development set numbers are in the next table.
 
 | Metric | Development set | Test set |
 |---|---|---|
@@ -144,17 +144,27 @@ Not run yet. This table will be filled from the logs in `eval/results/`.
 | Mean latency per query | pending | pending |
 | Mean cost per query | pending | pending |
 
-### Keyword-only baseline (measured)
+### Development set results (measured)
 
-Plain keyword search (BM25, no database, no AI model), development set of 20 queries, 9,315 chunks. Script: `eval/baseline_bm25.py`. Log: `eval/results/`.
+20 development queries, 9,304 chunks, 500 patents, embeddings from `intfloat/multilingual-e5-small` computed on a local GPU (384 dimensions). Settings were tuned on this same set, so these numbers are optimistic. The test set has not been run.
 
-| Metric | Keyword only, development set |
-|---|---|
-| Recall at 5 | 0.41 |
-| Recall at 10 | 0.49 |
-| Mean reciprocal rank | 0.68 |
+| System | Recall at 5 | Recall at 10 | MRR |
+|---|---|---|---|
+| Keyword only, BM25 in Python (baseline) | 0.41 | 0.49 | 0.68 |
+| Keyword only, PostgreSQL full text search | 0.41 | 0.45 | 0.73 |
+| Vector only | 0.43 | 0.52 | 0.76 |
+| Hybrid (rank fusion, k = 60, 50 candidates) | 0.40 | 0.47 | 0.80 |
 
-The hybrid search has to beat these numbers to justify its extra parts. With 20 queries, a difference of a few points is noise.
+What these numbers say, and do not say:
+
+- With 20 queries, differences of a few points are noise. The four systems are close.
+- The hybrid search ranks the first correct document higher (MRR 0.80), but it does not find more of the expected documents than vector search alone. On this set it does not beat the vector only search on recall.
+- About 6 of 15 hand read misses are references that no similarity search should be expected to find (see the failure analysis files), which caps the recall of every system.
+- Late finding: an earlier keyword query cut to its first 60 terms and ranked with `ts_rank_cd` had a recall at 10 of 0.35. Using every term with `ts_rank` and length normalization raised it to 0.45.
+
+Abstention: the similarity threshold (0.862) was set halfway between the lowest development query (0.892) and the highest of ten clearly off-topic descriptions (0.832). On ten held out descriptions of other electrical devices (wired charging, batteries, solar inverters), the tool abstained 10 times out of 10, and on the 20 development queries it abstained 0 times. These ten descriptions were written by hand and are few, so this says little about harder cases.
+
+Mean latency per query: 0.38 s for search only, local model on a GPU. Cost: none (the open model ran locally).
 
 ## 8. Failure analysis
 

@@ -7,7 +7,7 @@ dependencies = ["httpx>=0.27", "psycopg[binary]>=3.2", "pgvector>=0.3", "anthrop
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6"]
-local = ["sentence-transformers>=3"]
+local = ["sentence-transformers==3.3.1", "transformers==4.46.3", "numpy<2"]
 api = ["fastapi>=0.110", "uvicorn>=0.29"]
 
 [build-system]

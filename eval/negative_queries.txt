@@ -8,3 +8,13 @@ A board game in which players move tokens on a hexagonal grid and collect resour
 A process for brewing coffee by cold extraction of ground beans in water over twelve hours and filtering the extract.
 A contact lens made of a silicone hydrogel having a surface treatment that retains moisture.
 A method of grafting fruit trees by joining a scion to a rootstock and sealing the joint with wax.
+A wired USB-C charging cable with a reversible connector and an integrated current limiter.
+A lithium-ion battery cell comprising a silicon anode and a solid polymer electrolyte.
+A photovoltaic inverter that tracks the maximum power point of a solar panel string.
+A method of balancing the charge of series connected battery cells using a switched capacitor network.
+A smartphone camera module with an optical image stabilizer using voice coil actuators.
+A hearing aid comprising a microphone, a digital signal processor and a rechargeable zinc-air battery.
+A wind turbine blade pitch control system using a hydraulic actuator and a rotor speed sensor.
+A touchscreen display with capacitive sensing electrodes arranged in a diamond pattern.
+A Bluetooth low energy beacon that broadcasts an identifier at configurable intervals to save battery.
+An electric motor stator with concentrated windings and a laminated steel core.

@@ -41,6 +41,18 @@ def parse_dependency(value: str) -> int | None:
         return None
 
 
+def dedupe_claims(claims: list[dict]) -> list[dict]:
+    """Drop exact repeats (same number and same text). The source tables contain a few."""
+    seen: set[tuple[int, str]] = set()
+    unique = []
+    for claim in claims:
+        key = (claim["number"], claim["text"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(claim)
+    return unique
+
+
 def load_corpus_ids(split_path: Path) -> set[str]:
     return set(json.loads(split_path.read_text())["corpus"])
 
@@ -68,7 +80,8 @@ def build_patents(raw_dir: Path, ids: set[str]) -> dict[str, dict]:
                 }
                 claims[row["patent_id"]].append((int(row["claim_sequence"]), claim))
     for pid, items in claims.items():
-        patents[pid]["claims"] = [c for _, c in sorted(items, key=lambda t: t[0])]
+        ordered = [c for _, c in sorted(items, key=lambda t: t[0])]
+        patents[pid]["claims"] = dedupe_claims(ordered)
     return patents
 
 

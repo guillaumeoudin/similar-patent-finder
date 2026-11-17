@@ -40,3 +40,14 @@ Search queries are embedded on the database machine with the same model, so that
 - One vector folder per model. Never mix vectors from two models in one database.
 - `--reset` empties the tables before loading.
 - The folder records the model name and dimension. `priorart index` checks that the vectors match the current chunks and refuses otherwise.
+
+## Versions that worked together (tested)
+
+On a Windows machine with a GTX 1650 (4 GB), NVIDIA driver 536.99 (CUDA 12.2), Python 3.12:
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu121   # torch 2.5.1
+pip install "sentence-transformers==3.3.1" "transformers==4.46.3" "numpy<2"
+```
+
+Newer `transformers` releases need a newer PyTorch than this driver can run, and fail at import. The small model `intfloat/multilingual-e5-small` embedded 9,304 chunks in 87 seconds on that GPU.

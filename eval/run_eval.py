@@ -5,8 +5,9 @@ part of the text). The patent itself is excluded from the results. The expected 
 are the references its examiner cited that are in the corpus (see build_dataset.py).
 
 The development set is for tuning. The test set must be run once, at the end, with --final.
-Ten off-topic descriptions (eval/negative_queries.txt) check that the tool abstains
-when nothing in the corpus is close.
+Twenty descriptions of things that are not in the corpus (eval/negative_queries.txt) check
+that the tool abstains. The first ten (clearly off-topic) are used to tune the threshold. The
+last ten (electrical devices that are not wireless power) are held out and only reported.
 
 Usage:
     python eval/run_eval.py --set dev
@@ -104,7 +105,7 @@ def main() -> None:
         write(record)
 
     abstained_neg = 0
-    negatives = [n for n in NEGATIVES.read_text().splitlines() if n.strip()]
+    negatives = [n for n in NEGATIVES.read_text().splitlines() if n.strip()][10:]
     for text in negatives:
         res = hybrid_search(store, embedder, text, settings)
         abstained_neg += res.abstained
