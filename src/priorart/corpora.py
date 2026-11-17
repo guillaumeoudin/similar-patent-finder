@@ -1,7 +1,6 @@
 """The collections the tool can search. Each one has its own PostgreSQL schema.
 
-The list lives in corpora.json, next to this file: a label and a description, the language of
-its patents (the web page lists the collections of the language it is shown in), the CPC group
+The list lives in corpora.json, next to this file: a label and a description, the CPC group
 the patents come from, and the file the patents are prepared into. Adding a collection means
 adding an entry and running `priorart index --corpus <id>`.
 """
@@ -18,7 +17,6 @@ REGISTRY = Path(__file__).with_name("corpora.json")
 @dataclass(frozen=True)
 class Corpus:
     id: str
-    lang: str  # language of the patents and of the text below: "en" or "fr"
     schema: str
     patents_file: str
     cpc: str
@@ -36,7 +34,6 @@ def load_corpora() -> list[Corpus]:
     return [
         Corpus(
             id=i["id"],
-            lang=i["lang"],
             schema=i["schema"],
             patents_file=i["patents_file"],
             cpc=i["cpc"],

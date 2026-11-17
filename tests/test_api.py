@@ -111,29 +111,13 @@ def test_backend_down_gives_503(monkeypatch):
     assert "MISTRAL_API_KEY" in resp.json()["detail"]
 
 
-def test_corpora_are_listed_by_language_with_their_size(client):
-    body = client.get("/corpora", params={"lang": "en"}).json()
-    assert [c["id"] for c in body["corpora"]][0] == "wireless"
+def test_corpora_are_listed_with_their_size(client):
+    body = client.get("/corpora").json()
+    assert [c["id"] for c in body["corpora"]] == ["wireless", "coffee"]
     assert body["corpora"][0]["patents"] == 42 and body["corpora"][0]["cpc"] == "H02J 50"
     assert body["models"]["embedding"]
-    assert client.get("/corpora", params={"lang": "xx"}).json()["corpora"] == []
 
 
 def test_unknown_collection_is_refused(client):
     resp = client.post("/search", json={**QUERY, "corpus": "nope"})
     assert resp.status_code == 400
-
-
-def test_french_answers_ask_the_model_for_french(client, monkeypatch):
-    seen = {}
-
-    class Spy(FakeAnswerer):
-        def generate(self, system, user):
-            seen["user"] = user
-            return super().generate(system, user)
-
-    monkeypatch.setattr(api, "get_answerer", lambda: Spy("a transmit coil and a metal object"))
-    client.post("/answer", json={**QUERY, "lang": "fr"})
-    assert "in French" in seen["user"]
-    client.post("/answer", json=QUERY)
-    assert "in French" not in seen["user"]

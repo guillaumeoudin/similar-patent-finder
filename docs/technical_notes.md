@@ -89,4 +89,4 @@ BM25 is a refinement of TF-IDF: it weighs a word by how often it appears in a do
 
 450 patents drawn at random (seed 7) from the 3,463 granted 2015 to 2025 in CPC group A47J31, 7,675 chunks, embedded with voyage-4-lite. It has no examiner based answer key and is not part of the evaluation.
 
-Its abstention cutoff (0.563) comes from 8 hand written descriptions of the field and 8 off topic ones: the lowest in-field best similarity was 0.593 and the highest off topic one 0.533, so the margin is narrow (0.06). A description written in French finds the right English patents with this model (best similarity 0.67 on a capsule example), but this was checked on one example only.
+Its abstention cutoff (0.563) comes from 8 hand written descriptions of the field and 8 off topic ones: the lowest in-field best similarity was 0.593 and the highest off topic one 0.533, so the margin is narrow (0.06).

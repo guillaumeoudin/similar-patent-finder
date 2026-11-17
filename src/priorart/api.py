@@ -42,7 +42,6 @@ log = logging.getLogger("priorart")
 class QueryRequest(BaseModel):
     query: str = Field(min_length=20, max_length=20000)
     corpus: str | None = None  # collection id, the first one when omitted
-    lang: str = Field(default="en", pattern="^(en|fr)$")  # language of the written comparison
 
 
 class LoginRequest(BaseModel):
@@ -181,12 +180,10 @@ def config() -> dict:
 
 
 @app.get("/corpora")
-def corpora(lang: str = "en") -> dict:
-    """The collections shown in the page for a language, with their size and cutoff."""
+def corpora() -> dict:
+    """The collections shown in the page, with their size and cutoff."""
     out = []
     for c in load_corpora():
-        if c.lang != lang:
-            continue
         try:
             count = get_engine(c)[1].count_patents()
         except Exception as exc:
@@ -211,7 +208,6 @@ def corpora(lang: str = "en") -> dict:
         "local": _settings.local_embed_model,
     }.get(_settings.embedder, _settings.embed_model)
     return {
-        "lang": lang,
         "corpora": out,
         "models": {
             "embedding": embedding,
@@ -296,7 +292,7 @@ def search(req: QueryRequest, request: Request) -> dict:
 def answer(req: QueryRequest, request: Request) -> dict:
     try:
         result, info = run_search(req.query, req.corpus)
-        ans = answer_query(req.query, result, get_answerer(), language=req.lang)
+        ans = answer_query(req.query, result, get_answerer())
     except HTTPException:
         _refund(request)
         raise

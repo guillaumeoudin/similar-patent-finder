@@ -16,7 +16,7 @@ A second mode adds a short comment from a language model on what is close and wh
 
 If nothing in the collection is close enough, the tool does not bluff. It says: you shall not pass.
 
-There is a command line and a small web page. Both run on your own machine. Nothing is hosted online. The web page offers two collections: wireless power transfer, the one measured below, and coffee and beverage machines, a second collection that only illustrates the tool in another field. The page also works in French, but the patents stay in English for now.
+There is a command line and a small web page. Both run on your own machine. Nothing is hosted online. The web page offers two collections: wireless power transfer, the one measured below, and coffee and beverage machines, a second collection that only illustrates the tool in another field.
 
 ## How I tested it
 
