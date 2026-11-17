@@ -50,7 +50,8 @@ class Settings:
     top_k: int = 10  # patents returned
     abstain_below: float = 0.0  # minimum best cosine similarity, tuned on the dev set
     # hosted version: invite codes, signed cookies and request limits
-    auth_required: bool = False  # True on a public deployment
+    auth_required: bool = False  # True on a public deployment that needs an invite code
+    public_limits: bool = False  # True: no login, but a request limit per visitor address
     session_secret: str = ""  # long random string that signs the session cookie
     rate_limit_per_hour: int = 10  # requests per access code per hour
     daily_cap: int = 200  # requests per day over all codes, a ceiling on spending
@@ -101,6 +102,7 @@ def load_settings() -> Settings:
         top_k=_i("TOP_K", d.top_k),
         abstain_below=_f("ABSTAIN_BELOW", d.abstain_below),
         auth_required=_b("AUTH_REQUIRED", d.auth_required),
+        public_limits=_b("PUBLIC_LIMITS", d.public_limits),
         session_secret=os.environ.get("SESSION_SECRET", ""),
         rate_limit_per_hour=_i("RATE_LIMIT_PER_HOUR", d.rate_limit_per_hour),
         daily_cap=_i("DAILY_CAP", d.daily_cap),

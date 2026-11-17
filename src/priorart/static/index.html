@@ -562,6 +562,7 @@ function showLogin(message) {
 }
 function showApp(me) {
   $("login").hidden = true; $("form").hidden = false; $("collection").hidden = false;
+  $("logout").hidden = !cfg.auth_required;
   if (me.limit !== null && me.limit !== undefined) {
     $("sessionBar").hidden = false;
     $("quota").textContent = `${me.left} of ${me.limit} requests left this hour`;

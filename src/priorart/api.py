@@ -11,6 +11,7 @@ against a request limit (see access.py).
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import logging
 import time
 from pathlib import Path
@@ -65,19 +66,38 @@ def get_access() -> AccessControl:
     return _state["access"]
 
 
-def guard(kind: str):
-    """Dependency: when AUTH_REQUIRED is on, check the cookie, then count the request."""
+def visitor_key(request: Request) -> str:
+    """A salted hash of the visitor address. The address itself is never stored."""
+    forwarded = request.headers.get("x-vercel-forwarded-for") or request.headers.get(
+        "x-forwarded-for", ""
+    )
+    address = forwarded.split(",")[0].strip() or (request.client.host if request.client else "")
+    return hashlib.sha256(f"{_settings.session_secret}:{address}".encode()).hexdigest()[:24]
 
-    def check(request: Request, response: Response) -> None:
-        if not _settings.auth_required:
-            return
-        if kind == "answer" and not answers_enabled():
-            raise HTTPException(status_code=503, detail="Cited answers are not enabled here.")
+
+def identify(request: Request) -> int | None:
+    """Who is asking: an invite code holder, a visitor counted by address, or nobody (local)."""
+    if _settings.auth_required:
         access = get_access()
         code_id = read_session(request.cookies.get(COOKIE), _settings.session_secret)
         if code_id is None or not access.is_active(code_id):
             raise HTTPException(status_code=401, detail="Please sign in with your access code.")
-        quota = access.check_and_record(code_id, kind)
+        return code_id
+    if _settings.public_limits:
+        return get_access().visitor_id(visitor_key(request))
+    return None
+
+
+def guard(kind: str):
+    """Dependency: identify the visitor when needed, then count the request against the limits."""
+
+    def check(request: Request, response: Response) -> None:
+        if not (_settings.auth_required or _settings.public_limits):
+            return
+        if kind == "answer" and not answers_enabled():
+            raise HTTPException(status_code=503, detail="Cited answers are not enabled here.")
+        code_id = identify(request)
+        quota = get_access().check_and_record(code_id, kind)
         if not quota.allowed:
             wait = max(quota.retry_after // 60, 1)
             detail = (
@@ -151,7 +171,7 @@ def run_search(query: str, corpus_id: str | None = None):
 def _refund(request: Request) -> None:
     """A request that failed on our side does not count against the visitor."""
     code_id = getattr(request.state, "code_id", None)
-    if _settings.auth_required and code_id is not None:
+    if (_settings.auth_required or _settings.public_limits) and code_id is not None:
         try:
             get_access().refund(code_id)
         except Exception as exc:  # the refund is a courtesy, never a reason to fail again
@@ -160,7 +180,7 @@ def _refund(request: Request) -> None:
 
 def _public_error(exc: Exception | None) -> str:
     """Hosted: a generic message, so that no connection detail leaks. Local: the real cause."""
-    if _settings.auth_required:
+    if _settings.auth_required or _settings.public_limits:
         return "The search service is temporarily unavailable."
     return f"search backend unavailable: {exc}"
 
@@ -245,6 +265,9 @@ def logout(response: Response) -> dict:
 @app.get("/me")
 def me(request: Request) -> dict:
     if not _settings.auth_required:
+        if _settings.public_limits:
+            quota = get_access().usage(get_access().visitor_id(visitor_key(request)))
+            return {"signed_in": True, "left": quota.remaining, "limit": quota.limit}
         return {"signed_in": True, "left": None, "limit": None}
     access = get_access()
     code_id = read_session(request.cookies.get(COOKIE), _settings.session_secret)

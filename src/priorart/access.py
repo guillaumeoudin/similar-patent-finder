@@ -144,6 +144,15 @@ class AccessControl:
         cur = self._run("UPDATE access_codes SET revoked = true WHERE id = %s", (code_id,))
         return cur.rowcount > 0
 
+    def visitor_id(self, key: str) -> int:
+        """A stable id for a visitor without a code (a hash of the address), for the limits."""
+        row = self._run(
+            "INSERT INTO access_codes (label, code_hash) VALUES (%s, %s) "
+            "ON CONFLICT (code_hash) DO UPDATE SET label = EXCLUDED.label RETURNING id",
+            ("visitor", "visitor:" + key),
+        ).fetchone()
+        return row[0]
+
     # sign in and limits
 
     def login(self, code: str) -> int | None:

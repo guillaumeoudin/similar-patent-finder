@@ -20,6 +20,9 @@ class FakeAccess:
     def __init__(self, limit=2):
         self.limit, self.used, self.revoked = limit, 0, False
 
+    def visitor_id(self, key):
+        return 1
+
     def login(self, code):
         return 1 if code == "good-code" else None
 
@@ -116,3 +119,22 @@ def test_a_failed_search_is_refunded(hosted, monkeypatch):
     hosted.post("/login", json={"code": "good-code"})
     assert hosted.post("/search", json={"query": QUERY}).status_code == 503
     assert api._state["access"].used == 0
+
+
+def test_public_mode_has_no_login_but_limits_each_visitor(monkeypatch):
+    settings = dataclasses.replace(
+        api._settings, auth_required=False, public_limits=True, session_secret="s" * 40
+    )
+    monkeypatch.setattr(api, "_settings", settings)
+    monkeypatch.setattr(api, "_state", {"access": FakeAccess()})
+    monkeypatch.setattr(
+        api,
+        "run_search",
+        lambda q, c=None: (SearchResult(hits=[], best_similarity=0.9, abstained=False), {}),
+    )
+    client = TestClient(api.app)
+    assert client.get("/me").json() == {"signed_in": True, "left": 2, "limit": 2}
+    assert client.post("/search", json={"query": QUERY}).status_code == 200  # no sign in needed
+    assert client.post("/search", json={"query": QUERY}).status_code == 200
+    blocked = client.post("/search", json={"query": QUERY})
+    assert blocked.status_code == 429 and blocked.headers["retry-after"] == "600"
