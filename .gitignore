@@ -1,0 +1,15 @@
+# secrets
+.env
+# raw and prepared data (never versioned)
+data/
+# private context files, never commit
+contexte_*.md
+*_brief.md
+# python
+__pycache__/
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+# eval runs are kept, local scratch is not
+scratch/
