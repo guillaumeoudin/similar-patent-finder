@@ -40,6 +40,23 @@
   label.field { display: block; font-weight: 600; margin-bottom: 6px; }
   .labelrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .labelrow label { margin: 0; }
+  .corpusrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .corpusrow label { margin: 0; }
+  .selectwrap { position: relative; flex: 0 1 auto; }
+  .selectwrap::after {
+    content: ""; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; pointer-events: none;
+    border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+    transform: translateY(-70%) rotate(45deg); transition: transform .15s;
+  }
+  .selectwrap:focus-within::after { transform: translateY(-30%) rotate(225deg); }
+  #corpus {
+    appearance: none; -webkit-appearance: none; width: auto; min-width: 250px; max-width: 100%;
+    padding: 8px 38px 8px 16px; border-radius: 999px; font-weight: 600; cursor: pointer; color: var(--text);
+    border: 1px solid var(--border); background: linear-gradient(180deg, var(--surface), var(--accent-soft));
+    box-shadow: 0 1px 2px rgba(20, 30, 50, .10); transition: border-color .15s, box-shadow .15s;
+  }
+  #corpus:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(31, 95, 209, .18); }
+  @media (max-width: 640px) { .selectwrap { flex: 1 1 100%; } #corpus { width: 100%; } }
   select, input[type=password] {
     width: 100%; padding: 10px 12px; border-radius: 10px; font: inherit;
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
@@ -159,6 +176,7 @@
   @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
   .cols p { margin: 2px 0 0; }
   footer { margin-top: 36px; color: var(--muted); font-size: .85rem; text-align: center; }
+  footer p { margin: 0 0 8px; }
   a { color: var(--accent); }
 </style>
 </head>
@@ -171,11 +189,11 @@
   </header>
 
   <section class="card" id="collection">
-    <div class="labelrow">
+    <div class="corpusrow">
       <label class="field" for="corpus">Loaded patents corpus</label>
       <button type="button" class="info" data-info="dataset" aria-expanded="false" aria-label="More information" title="More information">i</button>
+      <div class="selectwrap"><select id="corpus"></select></div>
     </div>
-    <select id="corpus"></select>
     <div class="dataset-info" id="datasetInfo"></div>
     <p class="dataset-desc" id="datasetDesc"></p>
   </section>
@@ -242,7 +260,10 @@
     <div id="results"></div>
   </section>
 
-  <footer>Data derived from PatentsView. Not endorsed by, or affiliated with, PatentsView or the USPTO. Educational/demo purposes only. Each collection is a small sample, a missing match might just mean the corpus is too small or irrelevant to the described idea/invention.</footer>
+  <footer>
+  <p>This is not a professional tool, this was built for demo purposes only. Codebase can be found here on my repo : <a href="https://github.com/guillaumeoudin/similar-patent-finder" target="_blank" rel="noopener noreferrer">https://github.com/guillaumeoudin/similar-patent-finder</a></p>
+  <p>Data derived from PatentsView. Not endorsed by, or affiliated with, PatentsView or the USPTO. Educational/demo purposes only. Each collection is a small sample, a missing match might just mean the corpus is too small or irrelevant to the described idea/invention.</p>
+  </footer>
 </div>
 
 <div class="popover" id="popover" role="dialog" aria-label="Information" hidden>

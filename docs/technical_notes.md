@@ -79,14 +79,18 @@ BM25 is a refinement of TF-IDF: it weighs a word by how often it appears in a do
 - `priorart index` alone prints the size and a cost estimate and sends nothing.
 - The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default), or an API key (`ANSWERER=api`, needs `pip install -e ".[anthropic]"`). The command line mode cannot set the temperature, so two runs can differ.
 - The web page listens on the local machine only, at http://127.0.0.1:8000. Embeddings can also be computed on another machine and copied over, see `docs/gpu_machine.md`.
-- Tests and the development evaluation: `ruff check .`, `pytest -q` (58 tests, one file needs the database), `python eval/run_eval.py --set dev`.
+- Tests and the development evaluation: `ruff check .`, `pytest -q` (80 tests, the ones that need the database are skipped when it is not running), `python eval/run_eval.py --set dev`.
 
 ## Repository layout
 
-`src/priorart`: `ingest.py` and `chunking.py` prepare texts, `embeddings.py` and `store.py` handle the numbers and PostgreSQL, `search.py` merges rankings, `answer.py` writes the answer and checks every quote, `cli.py` and `api.py` are the entry points, `static/` is the web page. `eval/` has the evaluation scripts and every log in `eval/results/`. `prompts/` holds the prompts as text files.
+`src/priorart`: `ingest.py` and `chunking.py` prepare texts, `embeddings.py` and `store.py` handle the numbers and PostgreSQL, `search.py` merges rankings, `answer.py` writes the answer and checks every quote, `cli.py` and `api.py` are the entry points, `corpora.py` and `corpora.json` list the corpora, `access.py` holds the request limits and the invite codes, `static/` is the web page. `eval/` has the evaluation scripts and every log in `eval/results/`. `corpora/` has the selection script and the patent numbers of the coffee corpus. `prompts/` holds the prompts as text files. `docs/` has these notes, the deployment guide and the GPU machine note. `app.py`, `vercel.json`, `requirements.txt` and `.vercelignore` are for the Vercel deployment.
 
 ## The coffee collection (illustration only)
 
 450 patents drawn at random (seed 7) from the 3,463 granted 2015 to 2025 in CPC group A47J31, 7,675 chunks, embedded with voyage-4-lite. It has no examiner based answer key and is not part of the evaluation.
 
 Its abstention cutoff (0.563) comes from 8 hand written descriptions of the field and 8 off topic ones: the lowest in-field best similarity was 0.593 and the highest off topic one 0.533, so the margin is narrow (0.06).
+
+## Ranking on the web page
+
+Results are ranked by reciprocal rank fusion of the semantic and the keyword rankings of the passages (constant 60, 50 candidates from each). The similarity shown on each patent is the best cosine similarity among the passages displayed for it, computed in one extra query that changes no ranking. The abstention cutoff applies to the best vector similarity found. Search and ranking are the same as in the evaluation, only the display is added.

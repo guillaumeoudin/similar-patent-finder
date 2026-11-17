@@ -1,6 +1,8 @@
 # Similar Patent Finder
 
-You describe an invention in a few lines. The tool searches a collection of patents, shows the closest ones, and quotes the exact passage that makes each of them close. Every quote is checked against the patent text before it is shown.
+You describe an invention in a few lines. The tool searches a corpus of patents, ranks the closest ones, and quotes the exact passage that makes each of them close. Every quote is checked against the patent text before it is shown.
+
+Online demo (search only): https://similar-patent-finder.vercel.app
 
 ## The problem
 
@@ -10,31 +12,40 @@ Two things make it hard. The same idea gets written in different words, so a wir
 
 ## What the tool does
 
-You paste a description. It returns up to ten patents, closest first, with the passages that match best.
+You paste a description. It returns up to ten patents, each with the passages that match best. The ranking merges two searches: a semantic search, which finds passages that say the same thing in other words, and a keyword search, which finds passages that share your words (reciprocal rank fusion). Each patent also shows its similarity, the semantic closeness of its best passage as a percentage. That percentage does not decide the order, and the page explains why.
 
 A second mode adds a short comment from a language model on what is close and what is different, with one quote per patent. The model must copy an excerpt from the patent. The program then searches for that excerpt in the real patent text, like a Ctrl+F. If it is found, the quote is shown. If it is not, the model made it up or altered it, so the quote is removed and the whole answer is marked unreliable.
 
-If nothing in the collection is close enough, the tool does not bluff. It says: you shall not pass.
+If nothing in the corpus is close enough, the tool says so instead of guessing.
 
-There is a command line and a small web page. Both run on your own machine. Nothing is hosted online. The web page offers two collections: wireless power transfer, the one measured below, and coffee and beverage machines, a second collection that only illustrates the tool in another field.
+## The web page
+
+- **Two corpora to choose from**: wireless power transfer, the one measured below, and coffee and beverage machines, a second corpus that only illustrates the tool in another field. The page shows the size, the period and the origin of the data of the one you load.
+- **Two modes, one button**: similar patents (semantic and keyword search), or similar patents plus the AI comparison. Under the button, an orange note says how many tokens the search uses, because every search calls a paid service. The AI comparison is the costly part: about 20,000 tokens read and 1,000 written by the language model.
+- **Small "i" buttons** open a bubble that explains each mode, the two models in use (the search model and the comparison model), the ranking metric, the similarity of each patent, and the data.
+- **Limits**: when a limit is reached, the page says so and shows the visitor's address.
+
+## Online demo
+
+The demo at https://similar-patent-finder.vercel.app runs on Vercel, with the data in a Neon PostgreSQL database and the semantic search done by Voyage. There is no login. Because every search costs a little, each visitor is limited per hour and a daily cap applies to all visitors together. For now it offers the search only: the AI comparison needs an API key and runs locally. It is a demonstration, not a professional tool. The deployment is described in [`docs/deploy_vercel.md`](docs/deploy_vercel.md).
 
 ## How I tested it
 
 I measured the tool against what patent examiners actually found.
 
-**The examiner.** When a patent application is filed, an employee of the patent office (here the USPTO) reviews it. The examiner is the person who decides whether your precious invention gets through the gate. To do that, the examiner searches for earlier patents that show the idea is not new, and lists the ones they retain on the granted patent, under "references cited". It is the same job the tool is meant to do.
+**The examiner.** When a patent application is filed, an employee of the patent office (here the USPTO) reviews it. The examiner decides whether the invention can be patented. To do that, the examiner searches for earlier patents that show the idea is not new, and lists the ones they retain on the granted patent, under "references cited". It is the same job the tool is meant to do.
 
 **The test.**
 
-1. I took a patent, let's call it "the One Ring". The examiner cited 5 earlier patents for it, and those 5 are in my collection. That list is the **answer key**. The tool never sees it.
-2. I gave the tool the Ring's abstract (its short summary) and its **claim 1** (the legal sentence that defines what it protects), as if it were a new invention.
+1. I took a patent. The examiner cited 5 earlier patents for it, and those 5 are in my corpus. That list is the **answer key**. The tool never sees it.
+2. I gave the tool the patent's abstract (its short summary) and its **claim 1** (the legal sentence that defines what it protects), as if it were a new invention.
 3. The tool ranks the other patents from closest to least close. The **top 10** are the ten at the head of that list, the ones a user sees first.
 4. I count how many of the 5 are in the top 10. If 2 are, the score is 2 out of 5.
 5. I repeat on many patents and average.
 
-I used 70 patents chosen with a fixed random seed. The collection has 500 patents: those 70, the ones they cite, and random others from the same field.
+I used 70 patents chosen with a fixed random seed. The corpus has 500 patents: those 70, the ones they cite, and random others from the same field.
 
-**Two sets, on purpose.** 20 patents are the development set, used to try ideas and tune settings, so their scores are flattering. The other 50 are the test set. I ran it once per system, at the very end, after every setting was frozen. Like a trip to Mordor, there is no going back for a second try.
+**Two sets, on purpose.** 20 patents are the development set, used to try ideas and tune settings, so their scores are flattering. The other 50 are the test set. I ran it once per system, at the very end, after every setting was frozen, with no second try.
 
 **Two scores.**
 
@@ -48,16 +59,16 @@ With 50 test patents a score can move by chance, so each comes with a plausible 
 **In plain words**
 
 - **It finds about four in ten.** The best systems recover 37 to 43 percent of the cited patents in their top ten. This is a measured starting point, not a finished product.
-- **Searching by meaning did not clearly beat searching by keywords.** 43 percent against 37 percent can be luck with 50 patents, so I do not claim one is better.
+- **Semantic search did not clearly beat keyword search.** 43 percent against 37 percent can be luck with 50 patents, so I do not claim one is better.
 - **Most misses are not search errors.** I read 15. Eleven were patents of the same field that the examiner cited as background, not because they describe the same invention. No tool that looks for the closest document would find those.
 - **The quotes can be trusted.** 224 of 226 quotes were found word for word in the cited patent. The two others were removed and flagged.
-- **It declines when nothing matches.** On 10 descriptions of electrical devices not in the collection, it declined 10 times with the open model and 9 with the paid one, and never declined a real query. Ten is a small check.
+- **It declines when nothing matches.** On 10 descriptions of electrical devices not in the corpus, it declined 10 times with the open model and 9 with the paid one, and never declined a real query. Ten is a small check.
 
 **Systems compared**
 
 - **Keyword search.** Matches the words of the description against the patent text and favors rare words. BM25 is a refined form of TF-IDF. I also tried the full text search built into the database.
 - **Semantic search.** An embedding model turns a text into a list of numbers so that texts with similar meaning get similar numbers, and the search finds the closest ones. Two models: **e5-small**, open and free on my machine, and **voyage-4-lite**, a paid web service.
-- **Hybrid.** Runs both and merges the two rankings.
+- **Hybrid.** Runs both and merges the two rankings with reciprocal rank fusion.
 
 **Test set, 50 patents**, each system run once, with a 95 percent range in brackets:
 
@@ -72,7 +83,7 @@ With 50 test patents a score can move by chance, so each comes with a plausible 
 
 No system clearly beats the others, plain BM25 included, because the ranges overlap. Merging the two searches did not help much either. I had expected a clearer win. The scores are also lower than on the development set (hybrid with e5-small: 0.36 against 0.47 in the top 10), which is what tuning on 20 patents does and why I kept a test set.
 
-The cited answers and the refusal tests were run on the same 50 patents. Details, cost and speed are in [`docs/technical_notes.md`](docs/technical_notes.md).
+The cited answers and the refusal tests were run on the same 50 patents. Details, cost and speed are in [`docs/technical_notes.md`](docs/technical_notes.md). The web page and the second corpus were built after these measurements and are not part of them.
 
 ## Where it fails
 
@@ -80,15 +91,17 @@ The cited answers and the refusal tests were run on the same 50 patents. Details
 
 ## Limits
 
-- The answer key only counts examiner citations inside my field and my collection, and a cited patent is not always the closest one. It measures agreement with examiners, not truth.
+- The answer key only counts examiner citations inside my field and my corpus, and a cited patent is not always the closest one. It measures agreement with examiners, not truth.
 - Only abstracts and claims are indexed, not the long descriptions.
 - 500 patents is small, and 50 test patents give wide ranges. US patents in English only.
+- The coffee corpus has no answer key and is not measured. Its cutoff for declining rests on 16 hand written descriptions.
 - The models are general purpose. The two embedding models and the language model that writes the comments were not specialized or trained on legal, intellectual property or patent data, and I did not test models that were.
 - A verified quote proves the text exists in the patent. It does not prove the model's comment about it is right.
+- The online demo is limited per visitor and per day, and it does not offer the AI comparison.
 
 ## How it works
 
-Patent texts are cut into pieces, one per abstract and one per claim. Each piece becomes a list of numbers through the embedding model. Text, numbers and a keyword index live in one PostgreSQL database with the pgvector extension. A search runs by keywords and by meaning, and the two rankings are merged. The embedding model and the answer model sit behind small interfaces, so changing a model is a setting and not a code change.
+Patent texts are cut into pieces, one per abstract and one per claim. Each piece becomes a list of numbers through the embedding model. Text, numbers and a keyword index live in one PostgreSQL database with the pgvector extension, one schema per corpus. A search runs as a keyword search and a semantic search, and the two rankings are merged with reciprocal rank fusion: each passage earns 1 divided by (60 + its place) in each ranking, the points are added, and the passages are grouped by patent. The embedding model and the answer model sit behind small interfaces, so changing a model is a setting and not a code change.
 
 ```mermaid
 flowchart LR
@@ -97,7 +110,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    Q[Invention description] --> F[Hybrid search in the database]
+    Q[Invention description] --> F[Semantic and keyword search in the database]
     F --> G{Close enough?}
     G -- no --> H[No document close enough]
     G -- yes --> I[Answer model]
@@ -116,24 +129,32 @@ python -m venv .venv && source .venv/bin/activate   # on Windows: .venv\Scripts\
 pip install -e ".[dev,local]"
 cp .env.example .env
 docker compose -f docker_compose.yml up -d
-python eval/build_dataset.py      # picks the evaluation collection
+python eval/build_dataset.py      # picks the evaluation corpus
 python -m priorart.ingest         # builds clean records
 priorart index --yes              # embeds and stores
 priorart search "a charging pad with a coil that detects metal objects"
 priorart answer "a charging pad with a coil that detects metal objects"
 ```
 
-The web page needs `pip install -e ".[api]"` and `uvicorn priorart.api:app`. It has no login, so do not expose it to a network. Choosing the embedding model, using a Claude subscription or an API key for the answers, and the tests are explained in [`docs/technical_notes.md`](docs/technical_notes.md).
+The second corpus is built the same way, with its list of patent numbers in `corpora/`:
+
+```bash
+python -m priorart.ingest --ids corpora/coffee_ids.json --out data/processed/patents_coffee.jsonl
+priorart index --corpus coffee --yes
+priorart search --corpus coffee "a coffee machine that reads a code on the capsule"
+```
+
+The web page needs `pip install -e ".[api]"` and `uvicorn priorart.api:app`. Locally it has no login and no limit, so do not expose it to a network. Choosing the embedding model, using a Claude subscription or an API key for the answers, and the tests are explained in [`docs/technical_notes.md`](docs/technical_notes.md).
 
 ## Data
 
-The patents come from the PatentsView tables, distributed by the USPTO Open Data Portal. I kept one field, wireless power transfer (CPC group H02J 50), for patents granted from 2015 to 2025. The raw files are not in this repository. You download them yourself from the portal, which needs a free USPTO.gov account, and put them in `data/raw/`. `DATA_LICENSES.md` has the license statement and what I could and could not verify.
+The patents come from the PatentsView tables, distributed by the USPTO Open Data Portal. The measured corpus is one field, wireless power transfer (CPC group H02J 50), for patents granted from 2015 to 2025. The second corpus is 450 random patents of another field, coffee and beverage machines (CPC group A47J 31), over the same period. The raw files are not in this repository. You download them yourself from the portal, which needs a free USPTO.gov account, and put them in `data/raw/`. `DATA_LICENSES.md` has the license statement and what I could and could not verify.
 
 Data derived from PatentsView. This project is not endorsed by, or affiliated with, PatentsView or the USPTO.
 
 ## Disclaimer
 
-This is a technical project. It does not tell you whether an invention is new or patentable, and it should not be used to make legal decisions.
+This is a technical project built for demo purposes. It does not tell you whether an invention is new or patentable, and it should not be used to make legal decisions.
 
 ## Next
 

@@ -31,9 +31,9 @@ The limits protect you against a leaked code or a curious crowd. For a hard ceil
 ## Steps
 
 1. Create a Neon project and copy its **pooled** connection string.
-2. Load the data. With vectors already computed in a local database, copy the `patents` and `chunks` tables to Neon. Or run `priorart embed --out data/vectors/voyage` with `EMBEDDER=voyage`, then `priorart index --vectors data/vectors/voyage --yes` with `DATABASE_URL` pointing at Neon.
+2. Load the data. With vectors already computed in a local database, copy the `patents` and `chunks` tables of each corpus (one PostgreSQL schema per corpus: `public` and `coffee`) to Neon. Or run `priorart embed --out data/vectors/voyage` with `EMBEDDER=voyage`, then `priorart index --vectors data/vectors/voyage --yes` with `DATABASE_URL` pointing at Neon.
 3. Create invite codes against the Neon database: `DATABASE_URL=... priorart codes create --label "name"`. The code is shown once. `priorart codes list` and `priorart codes revoke --id N` manage them.
-4. Set these variables on the Vercel project (Production and Preview):
+4. Set these variables on the Vercel project (Production):
 
 | Variable | Value |
 |---|---|
@@ -45,6 +45,8 @@ The limits protect you against a leaked code or a curious crowd. For a hard ceil
 | `AUTH_REQUIRED` | `1` for invite codes, `0` for open access |
 | `PUBLIC_LIMITS` | `1` to limit each visitor when there is no login |
 | `SESSION_SECRET` | a long random string |
+| `RATE_LIMIT_PER_HOUR`, `ANTHROPIC_RATE_LIMIT_PER_HOUR` | per visitor and per hour, 10 and 10 by default |
+| `DAILY_CAP`, `ANTHROPIC_DAILY_CAP` | for all visitors together, per day: all requests and answers only |
 | `ANSWERER` | `api` |
 | `ANTHROPIC_API_KEY` | optional, enables cited answers |
 
