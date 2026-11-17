@@ -29,7 +29,7 @@ A tool like this is easy to demo and hard to judge. So I measured it against a r
 
 **The test, step by step.**
 
-1. I took a patent and nicknamed it the One Ring. The examiner cited 5 earlier patents for it, and those 5 are in my collection. That list of 5 is the **answer key**. The tool never sees it.
+1. I took a patent, let's call it "the One Ring". The examiner cited 5 earlier patents for it, and those 5 are in my collection. That list of 5 is the **answer key**. The tool never sees it.
 2. I gave the tool the Ring's abstract (its short summary) plus its **claim 1** (the legal sentence that defines what the patent protects). To the tool this looks like a new invention to check.
 3. The tool ranks the other patents in the collection from closest to least close, with the Ring itself removed. That ranked list is the **results**, and the **top 10** are the ten patents at its head, the ones a user would see first.
 4. I count how many of the 5 patents in the answer key are in the top 10. If 2 are, the score for this patent is 2 out of 5, or 0.4.
@@ -42,7 +42,7 @@ I used 70 patents chosen with a fixed random seed, each with 3 to 8 examiner cit
 **Two scores.**
 
 - **Found in the top 10** (called recall at 10 in the literature). The share of the answer key that shows up in the first ten results. 0.43 means that, on average, 43 percent of the patents the examiner cited appear there. The same idea applies to the top 5.
-- **Ranking score** (called MRR). It rewards putting a cited patent high in the list. If the first cited patent is in first place the score is 1, in second place 0.5, in tenth place 0.1. It is averaged over all patents.
+- **Ranking score** (called MRR, for mean reciprocal rank). It answers a different question: how quickly does the user hit a first good result? For each test patent, I look at the position of the first cited patent in the results and take 1 divided by that position. First place gives 1, second gives 0.5, third gives 0.33, tenth gives 0.1, and no cited patent in the results gives 0. I then average over all test patents. A score around 0.5 means the first good result typically sits around second place.
 
 With only 50 test patents, a score can move by chance. So I give a plausible range for each one. When two ranges overlap, the difference may be luck.
 
@@ -118,14 +118,14 @@ I read 15 missed references by hand, drawn at random from the final test run (`e
 
 Eleven of the 15 were patents of the same field that cover another aspect of wireless charging than the description: a circuit against a coil structure, a display against a coil material. An examiner often cites a patent as background and not because it describes the same invention. No method that looks for the closest document should be expected to find those, so they cap what any system can score on this answer key. Two were the same idea in other words or just outside the top 10, and two came from a description that was thin or mostly about something else.
 
-Not all the misses are lost. Seven of the 15 ranked between 9 and 29, close to the cut. A longer candidate list or a reranking step could recover some of them. One of them, about heat dissipation, would rank 9th with a longer list and was missed with the one used in the run. I kept the same settings and did not re-tune after reading the test set. I read these cases alone, so the sorting is a judgment call.
+Seven of the 15 ranked between 9 and 29, close to the cut. A longer candidate list or a reranking step could recover some of them. One of them, about heat dissipation, would rank 9th with a longer list and was missed with the one used in the run. I kept the same settings and did not re-tune after reading the test set. I read these cases alone, so the sorting is a judgment call.
 
 ## Limits
 
 - The answer key only counts examiner citations that point to a patent inside my field and my collection. Most citations point elsewhere, and a cited patent is not always the closest one. The key measures agreement with examiners, not truth.
 - Only abstracts and claims are indexed, not the long descriptions. A passage that exists only in a description cannot be found.
 - Dependent claims such as "the device of claim 1, wherein" say little on their own.
-- The collection is small, 500 patents, a Shire and not the whole of Middle earth, so these results will not carry over as they are to millions of documents.
+- The collection is small, 500 patents, so these results will not carry over as they are to millions of documents.
 - Fifty test patents give wide ranges, and the cutoff for declining was tuned on 20.
 - US patents in English only.
 
@@ -184,7 +184,7 @@ priorart answer "a charging pad with a coil that detects metal objects"
 
 The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default), or an API key (`ANSWERER=api`, which needs `pip install -e ".[anthropic]"`). The command line mode cannot set the temperature, so two runs can differ.
 
-The web page needs `pip install -e ".[api]"`, then `uvicorn priorart.api:app`, and opens at http://127.0.0.1:8000. It listens on the local machine only and has no login, no need to speak friend and enter, so do not expose it to a network. The embeddings can also be computed on a different machine and copied over, see `docs/gpu_machine.md`.
+The web page needs `pip install -e ".[api]"`, then `uvicorn priorart.api:app`, and opens at http://127.0.0.1:8000. It listens on the local machine only and has no login, so do not expose it to a network. The embeddings can also be computed on a different machine and copied over, see `docs/gpu_machine.md`.
 
 Tests and the development evaluation:
 
@@ -206,7 +206,7 @@ Data derived from PatentsView. This project is not endorsed by, or affiliated wi
 
 ## Disclaimer
 
-This is a technical project. One does not simply use it to decide whether an invention is new or patentable, and it should not be used to make legal decisions.
+This is a technical project. It does not tell you whether an invention is new or patentable, and it should not be used to make legal decisions.
 
 ## Next
 
