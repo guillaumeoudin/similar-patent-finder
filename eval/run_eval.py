@@ -46,6 +46,7 @@ def main() -> None:
     parser.add_argument("--set", choices=["dev", "test"], required=True)
     parser.add_argument("--final", action="store_true", help="required to run the test set")
     parser.add_argument("--answers", action="store_true", help="also run the answer step")
+    parser.add_argument("--mode", choices=["hybrid", "vector", "keyword"], default="hybrid")
     args = parser.parse_args()
     if args.set == "test" and not args.final:
         parser.error("the test set is run once, at the end: add --final")
@@ -70,16 +71,18 @@ def main() -> None:
     def write(record: dict) -> None:
         log.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    write({"type": "config", "set": args.set, "answers": args.answers, "time": stamp,
-           "settings": {k: v for k, v in settings.__dict__.items() if "key" not in k},
-           "embedder": embedder.name})  # fmt: skip
+    public_settings = {k: v for k, v in settings.__dict__.items() if "key" not in k}
+    write({"type": "config", "set": args.set, "mode": args.mode, "answers": args.answers,
+           "time": stamp, "settings": public_settings, "embedder": embedder.name})  # fmt: skip
 
     r5, r10, rr, latencies = [], [], [], []
     abstained_pos = verified = total_items = unreliable = answer_errors = 0
     for query_id, expected in split[args.set].items():
         text = query_text(patents[query_id])
         start = time.perf_counter()
-        result = hybrid_search(store, embedder, text, settings, exclude_patent_id=query_id)
+        result = hybrid_search(
+            store, embedder, text, settings, exclude_patent_id=query_id, mode=args.mode
+        )
         ranked = [h.patent_id for h in result.hits]
         record = {
             "type": "query", "query_id": query_id, "expected": expected, "ranked": ranked,
@@ -119,7 +122,7 @@ def main() -> None:
 
     n = len(r5)
     summary = {
-        "type": "summary", "set": args.set, "queries": n,
+        "type": "summary", "set": args.set, "mode": args.mode, "queries": n,
         "recall@5": mean(r5), "recall@10": mean(r10), "mrr": mean(rr),
         "abstention_rate_on_real_queries": abstained_pos / n,
         "abstention_rate_on_off_topic": abstained_neg / max(1, len(negatives)),

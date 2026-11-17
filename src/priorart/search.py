@@ -93,10 +93,11 @@ def hybrid_search(
     settings: Settings,
     exclude_patent_id: str | None = None,
     max_chunks_per_patent: int = 3,
+    mode: str = "hybrid",
 ) -> SearchResult:
     vector = embedder.embed([query], kind="query")[0]
     by_vector = store.vector_search(vector, settings.candidates, exclude_patent_id)
     by_keyword = store.keyword_search(query, settings.candidates, exclude_patent_id)
-    hits = fuse(by_vector, by_keyword, settings.rrf_k, settings.top_k, max_chunks_per_patent)
+    hits = fuse(by_vector, by_keyword, settings.rrf_k, settings.top_k, max_chunks_per_patent, mode)
     best_sim = max((r.similarity or 0.0 for r in by_vector), default=0.0)
     return SearchResult(hits, best_sim, abstained=best_sim < settings.abstain_below)

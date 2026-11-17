@@ -4,13 +4,14 @@ It answers one question: how far does plain keyword search get on this evaluatio
 The hybrid search must beat this number to justify its extra moving parts.
 
 Same chunks, same queries and same patent-level aggregation as run_eval.py. The test set
-is deliberately not offered here: it is run once, at the end, with the real pipeline.
+is run once, at the end, with --final.
 
-Usage: python eval/baseline_bm25.py
+Usage: python eval/baseline_bm25.py [--set test --final]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import re
@@ -39,6 +40,12 @@ def query_text(patent: dict) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--set", choices=["dev", "test"], default="dev")
+    parser.add_argument("--final", action="store_true", help="required to run the test set")
+    args = parser.parse_args()
+    if args.set == "test" and not args.final:
+        parser.error("the test set is run once, at the end: add --final")
     split = json.loads(SPLIT.read_text())
     patents = {}
     with PATENTS.open(encoding="utf-8") as f:
@@ -72,7 +79,7 @@ def main() -> None:
         return [p for p, _ in sorted(best.items(), key=lambda t: t[1], reverse=True)][:10]
 
     r5, r10, rr, secs, records = [], [], [], [], []
-    for qid, expected in split["dev"].items():
+    for qid, expected in split[args.set].items():
         start = time.perf_counter()
         ranked = search(query_text(patents[qid]), exclude=qid)
         secs.append(time.perf_counter() - start)
@@ -83,13 +90,13 @@ def main() -> None:
         records.append({"type": "query", "query_id": qid, "expected": expected, "ranked": ranked})
 
     summary = {
-        "type": "summary", "system": "bm25_keyword_only", "set": "dev", "queries": len(r5),
+        "type": "summary", "system": "bm25_keyword_only", "set": args.set, "queries": len(r5),
         "recall@5": mean(r5), "recall@10": mean(r10), "mrr": mean(rr),
         "mean_seconds_per_query": mean(secs), "chunks": n,
     }  # fmt: skip
     RESULTS.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    out = RESULTS / f"baseline_bm25_dev_{stamp}.jsonl"
+    out = RESULTS / f"baseline_bm25_{args.set}_{stamp}.jsonl"
     with out.open("w", encoding="utf-8") as f:
         for rec in [{"type": "config", "k1": K1, "b": B, "time": stamp}, *records, summary]:
             f.write(json.dumps(rec) + "\n")
