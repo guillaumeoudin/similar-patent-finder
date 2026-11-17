@@ -143,3 +143,31 @@ def test_claude_code_answerer_reports_a_failed_call(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="not logged in"):
         ClaudeCodeAnswerer(Settings()).generate("s", "u")
+
+
+def test_api_answerer_sends_no_sampling_parameters(monkeypatch):
+    """Current models reject a non default temperature, and long answers need room."""
+    import sys
+    import types
+
+    from priorart.answer import ClaudeAnswerer
+    from priorart.config import Settings
+
+    seen = {}
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            seen.update(kwargs)
+            block = types.SimpleNamespace(type="text", text="{}")
+            usage = types.SimpleNamespace(input_tokens=3, output_tokens=2)
+            return types.SimpleNamespace(content=[block], usage=usage)
+
+    class FakeClient:
+        def __init__(self, api_key):
+            self.messages = FakeMessages()
+
+    monkeypatch.setitem(sys.modules, "anthropic", types.SimpleNamespace(Anthropic=FakeClient))
+    answerer = ClaudeAnswerer(Settings(anthropic_api_key="k", answer_model="claude-sonnet-5-5"))
+    assert answerer.generate("sys", "user") == ("{}", 3, 2)
+    assert "temperature" not in seen and seen["max_tokens"] >= 4000
+    assert seen["model"] == "claude-sonnet-5-5"

@@ -101,10 +101,12 @@ class AccessControl:
         limit_per_hour: int,
         daily_cap: int,
         answer_limit: int | None = None,
+        answer_daily_cap: int | None = None,
     ):
         self.database_url = database_url
         self.limit = limit_per_hour
         self.answer_limit = limit_per_hour if answer_limit is None else answer_limit
+        self.answer_daily_cap = daily_cap if answer_daily_cap is None else answer_daily_cap
         self.daily_cap = daily_cap
         self._conn = None
 
@@ -189,7 +191,7 @@ class AccessControl:
         Every request uses the embedding service, so all of them count against `limit`. Only
         answers use the AI model, so only they count against `answer_limit`.
         """
-        hour_all, wait_all, hour_answers, wait_answers, day_used = self._run(
+        hour_all, wait_all, hour_answers, wait_answers, day_used, day_answers = self._run(
             "SELECT count(*) FILTER (WHERE code_id = %s AND at > now() - interval '1 hour'),"
             " extract(epoch FROM (min(at) FILTER (WHERE code_id = %s"
             "   AND at > now() - interval '1 hour') + interval '1 hour' - now())),"
@@ -197,7 +199,7 @@ class AccessControl:
             "   AND at > now() - interval '1 hour'),"
             " extract(epoch FROM (min(at) FILTER (WHERE code_id = %s AND kind = 'answer'"
             "   AND at > now() - interval '1 hour') + interval '1 hour' - now())),"
-            " count(*) "
+            " count(*), count(*) FILTER (WHERE kind = 'answer') "
             "FROM usage_log WHERE at > now() - interval '24 hours'",
             (code_id, code_id, code_id, code_id),
         ).fetchone()
@@ -205,6 +207,8 @@ class AccessControl:
             return Quota(False, hour_all, self.limit, 3600, "daily")
         if hour_all >= self.limit:
             return Quota(False, hour_all, self.limit, int(wait_all or 60) + 1, "voyage")
+        if kind == "answer" and day_answers >= self.answer_daily_cap:
+            return Quota(False, hour_all, self.limit, 3600, "anthropic_daily")
         if kind == "answer" and hour_answers >= self.answer_limit:
             return Quota(False, hour_all, self.limit, int(wait_answers or 60) + 1, "anthropic")
         self._run("INSERT INTO usage_log (code_id, kind) VALUES (%s, %s)", (code_id, kind))

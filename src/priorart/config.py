@@ -55,7 +55,8 @@ class Settings:
     session_secret: str = ""  # long random string that signs the session cookie
     rate_limit_per_hour: int = 10  # requests per visitor per hour (all use the embedding service)
     anthropic_limit_per_hour: int = 10  # of those, answers per visitor per hour (AI model)
-    daily_cap: int = 200  # requests per day over all codes, a ceiling on spending
+    daily_cap: int = 200  # requests per day over all visitors, a ceiling on spending
+    anthropic_daily_cap: int = 50  # of those, answers per day (the AI model is the costly part)
 
     @property
     def dim(self) -> int:
@@ -108,4 +109,5 @@ def load_settings() -> Settings:
         rate_limit_per_hour=_i("RATE_LIMIT_PER_HOUR", d.rate_limit_per_hour),
         anthropic_limit_per_hour=_i("ANTHROPIC_RATE_LIMIT_PER_HOUR", d.anthropic_limit_per_hour),
         daily_cap=_i("DAILY_CAP", d.daily_cap),
+        anthropic_daily_cap=_i("ANTHROPIC_DAILY_CAP", d.anthropic_daily_cap),
     )

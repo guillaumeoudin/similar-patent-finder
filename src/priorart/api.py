@@ -65,6 +65,7 @@ def get_access() -> AccessControl:
             _settings.rate_limit_per_hour,
             _settings.daily_cap,
             _settings.anthropic_limit_per_hour,
+            _settings.anthropic_daily_cap,
         )
     return _state["access"]
 

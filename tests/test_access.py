@@ -114,3 +114,13 @@ def test_every_request_counts_against_the_embedding_limit(ac):
         assert answers_ac.check_and_record(code_id, kind).allowed
     blocked = answers_ac.check_and_record(code_id, "answer")
     assert not blocked.allowed and blocked.reason == "voyage"
+
+
+def test_answers_have_a_daily_cap_of_their_own(ac):
+    capped = AccessControl(TEST_URL, 10, 50, answer_limit=10, answer_daily_cap=2)
+    ids = [capped.create_code(str(i))[0] for i in range(3)]
+    assert capped.check_and_record(ids[0], "answer").allowed
+    assert capped.check_and_record(ids[1], "answer").allowed
+    third = capped.check_and_record(ids[2], "answer")
+    assert not third.allowed and third.reason == "anthropic_daily"
+    assert capped.check_and_record(ids[2], "search").allowed

@@ -20,7 +20,7 @@ Every search calls a paid service, and every cited answer calls a paid language 
 - **Invite codes** (`AUTH_REQUIRED=1`). Each person gets a code that you create and revoke yourself. Only a hash of each code is stored. Signing in gives a signed cookie that cannot be forged.
 - **Per visitor limits without login** (`AUTH_REQUIRED=0`, `PUBLIC_LIMITS=1`). The visitor is recognized by a salted hash of the address, which is never stored.
 
-In both modes the same limits apply, per visitor and per rolling hour. Every request uses the embedding service, so all requests count against `RATE_LIMIT_PER_HOUR` (10 by default). Only cited answers use the AI model, so only they count against `ANTHROPIC_RATE_LIMIT_PER_HOUR` (10 by default). All visitors together may make `DAILY_CAP` requests per day (200 by default). A request that fails on the server side is not counted.
+In both modes the same limits apply, per visitor and per rolling hour. Every request uses the embedding service, so all requests count against `RATE_LIMIT_PER_HOUR` (10 by default). Only cited answers use the AI model, so only they count against `ANTHROPIC_RATE_LIMIT_PER_HOUR` (10 by default). All visitors together may make `DAILY_CAP` requests per day (200 by default), and answers have their own daily cap, `ANTHROPIC_DAILY_CAP` (50 by default). A request that fails on the server side is not counted.
 
 When a limit is reached the page only says that the rate limit is reached and shows the visitor's address. It does not say what the rule is.
 

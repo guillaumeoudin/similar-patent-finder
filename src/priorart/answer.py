@@ -77,10 +77,11 @@ class ClaudeAnswerer:
         self._model = settings.answer_model
 
     def generate(self, system: str, user: str) -> tuple[str, int, int]:
+        # No temperature: current models reject non default sampling values. The answer is
+        # checked by the program anyway. 4000 leaves room: the longest answer measured was 2,400.
         msg = self._client.messages.create(
             model=self._model,
-            max_tokens=2000,
-            temperature=0,
+            max_tokens=4000,
             system=system,
             messages=[{"role": "user", "content": user}],
         )

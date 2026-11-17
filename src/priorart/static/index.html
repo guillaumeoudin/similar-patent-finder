@@ -171,7 +171,7 @@
 
   <section class="card" id="collection">
     <div class="labelrow">
-      <label class="field" for="corpus">Loaded dataset</label>
+      <label class="field" for="corpus">Loaded patents corpus</label>
       <button type="button" class="info" data-info="dataset" aria-expanded="false" aria-label="More information" title="More information">i</button>
     </div>
     <select id="corpus"></select>
@@ -358,10 +358,7 @@ async function loadCorpora() {
   corpora = data.corpora; models = data.models || {};
   const select = $("corpus");
   select.replaceChildren();
-  for (const c of corpora) {
-    const n = c.patents === null || c.patents === undefined ? "" : ` (${c.patents} patents)`;
-    select.append(el("option", { value: c.id, text: c.label + n }));
-  }
+  for (const c of corpora) select.append(el("option", { value: c.id, text: c.label }));
   const saved = storeGet("corpus");
   if (saved && corpora.some((c) => c.id === saved)) select.value = saved;
   renderCollection();
