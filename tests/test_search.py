@@ -33,7 +33,7 @@ class FakeEmbedder:
     name = "fake"
     dim = 2
 
-    def embed(self, texts):
+    def embed(self, texts, kind="document"):
         return [[1.0, 0.0] for _ in texts]
 
 

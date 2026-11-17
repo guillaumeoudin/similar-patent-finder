@@ -56,7 +56,7 @@ def hybrid_search(
     exclude_patent_id: str | None = None,
     max_chunks_per_patent: int = 3,
 ) -> SearchResult:
-    vector = embedder.embed([query])[0]
+    vector = embedder.embed([query], kind="query")[0]
     by_vector = store.vector_search(vector, settings.candidates, exclude_patent_id)
     by_keyword = store.keyword_search(query, settings.candidates, exclude_patent_id)
 

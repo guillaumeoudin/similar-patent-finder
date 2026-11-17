@@ -12,6 +12,7 @@ from priorart.config import Settings, load_settings
 from priorart.embeddings import estimate_tokens, make_embedder
 from priorart.search import hybrid_search
 from priorart.store import Store
+from priorart.vectors import load_vectors, save_vectors
 
 PATENTS_FILE = Path("data/processed/patents.jsonl")
 
@@ -21,28 +22,60 @@ def load_patents() -> list[dict]:
         return [json.loads(line) for line in f]
 
 
-def cmd_index(settings: Settings, confirmed: bool, reset: bool) -> None:
+def cmd_embed(settings: Settings, out: Path) -> None:
+    """Compute the vectors for the whole corpus and save them in a folder (no database needed)."""
+    patents = load_patents()
+    chunks = [c for p in patents for c in chunk_patent(p)]
+    embedder = make_embedder(settings)
+    vectors: list[list[float]] = []
+    batch = 128
+    for i in range(0, len(chunks), batch):
+        vectors.extend(embedder.embed([c.text for c in chunks[i : i + batch]]))
+        print(f"  {min(i + batch, len(chunks))}/{len(chunks)}")
+    save_vectors(out, [c.chunk_id for c in chunks], vectors, embedder.name)
+    print(f"saved {len(chunks)} vectors from {embedder.name} to {out}")
+
+
+def cmd_index(settings: Settings, confirmed: bool, reset: bool, vectors_dir: Path | None) -> None:
     patents = load_patents()
     chunks = [c for p in patents for c in chunk_patent(p)]
     tokens = estimate_tokens([c.text for c in chunks])
-    print(f"{len(patents)} patents, {len(chunks)} chunks, about {tokens:,} tokens to embed")
-    if settings.embed_price_per_m_tokens:
-        print(f"estimated cost: {tokens / 1e6 * settings.embed_price_per_m_tokens:.4f}")
-    else:
-        print("set EMBED_PRICE_PER_M_TOKENS to see a cost estimate")
-    if not confirmed:
-        print("nothing was sent. Re-run with --yes to embed and store.")
-        return
+    print(f"{len(patents)} patents, {len(chunks)} chunks, about {tokens:,} tokens")
 
-    embedder = make_embedder(settings)
-    store = Store(settings.database_url, settings.dim)
+    if vectors_dir is not None:
+        ids, vectors, meta = load_vectors(vectors_dir)
+        if ids != [c.chunk_id for c in chunks]:
+            raise SystemExit(
+                "the vectors do not match the current chunks: run `priorart embed` again"
+            )
+        dim = meta["dim"]
+        print(
+            f"using saved vectors from {meta['model']} (dimension {dim}): nothing is sent anywhere"
+        )
+        embed_chunks = None
+    else:
+        dim = settings.dim
+        embedder = make_embedder(settings)
+        embed_chunks = embedder.embed
+        if settings.embed_price_per_m_tokens:
+            print(f"estimated cost: {tokens / 1e6 * settings.embed_price_per_m_tokens:.4f}")
+        else:
+            print("set EMBED_PRICE_PER_M_TOKENS to see a cost estimate")
+        if not confirmed:
+            print("nothing was sent. Re-run with --yes to embed and store.")
+            return
+
+    store = Store(settings.database_url, dim)
     store.reset() if reset else store.init_schema()
     for p in patents:
         store.add_patent(p)
     batch = 256
     for i in range(0, len(chunks), batch):
         part = chunks[i : i + batch]
-        store.add_chunks(part, embedder.embed([c.text for c in part]))
+        vecs = (
+            vectors[i : i + batch] if embed_chunks is None else embed_chunks([c.text for c in part])
+        )
+        store.add_chunks(part, vecs)
         print(f"  {min(i + batch, len(chunks))}/{len(chunks)}")
     print(f"done. chunks in database: {store.count_chunks()}")
 
@@ -87,14 +120,19 @@ def main() -> None:
     p_index = sub.add_parser("index", help="embed the corpus and store it")
     p_index.add_argument("--yes", action="store_true", help="confirm: send texts to the embedder")
     p_index.add_argument("--reset", action="store_true", help="drop and recreate the tables")
+    p_index.add_argument("--vectors", type=Path, help="folder made by `priorart embed`")
+    p_embed = sub.add_parser("embed", help="compute vectors for the corpus and save them")
+    p_embed.add_argument("--out", type=Path, required=True, help="folder to write")
     for name in ("search", "answer"):
         p = sub.add_parser(name)
         p.add_argument("query", help="description of the invention")
     args = parser.parse_args()
 
     settings = load_settings()
-    if args.command == "index":
-        cmd_index(settings, args.yes, args.reset)
+    if args.command == "embed":
+        cmd_embed(settings, args.out)
+    elif args.command == "index":
+        cmd_index(settings, args.yes, args.reset, args.vectors)
     elif args.command == "search":
         cmd_search(settings, args.query)
     else:

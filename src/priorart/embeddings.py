@@ -16,14 +16,25 @@ class Embedder(Protocol):
     name: str
     dim: int
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        """Return one vector per text, in the same order."""
+    def embed(self, texts: list[str], kind: str = "document") -> list[list[float]]:
+        """Return one vector per text, in the same order.
+
+        kind is "document" for stored passages and "query" for a search text. Some models
+        need to know which one it is. Others ignore it.
+        """
         ...
 
 
 def estimate_tokens(texts: list[str]) -> int:
     """Rough token count (about 4 characters per token). Used only for cost estimates."""
     return sum(len(t) for t in texts) // 4
+
+
+def e5_prefix(model_name: str, kind: str) -> str:
+    """E5 models were trained with 'query: ' and 'passage: ' prefixes. Other models need none."""
+    if "e5" not in model_name.lower():
+        return ""
+    return "query: " if kind == "query" else "passage: "
 
 
 class MistralEmbedder:
@@ -37,7 +48,7 @@ class MistralEmbedder:
         self._batch = batch_size
         self.tokens_used = 0
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
+    def embed(self, texts: list[str], kind: str = "document") -> list[list[float]]:
         import httpx
 
         vectors: list[list[float]] = []
@@ -68,8 +79,13 @@ class LocalEmbedder:
         self._model = SentenceTransformer(self.name)
         self.tokens_used = 0
 
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        return self._model.encode(texts, normalize_embeddings=True).tolist()
+    def embed(self, texts: list[str], kind: str = "document") -> list[list[float]]:
+        prefix = e5_prefix(self.name, kind)
+        texts = [prefix + t for t in texts]
+        vectors = self._model.encode(
+            texts, normalize_embeddings=True, batch_size=32, show_progress_bar=len(texts) > 64
+        )
+        return vectors.tolist()
 
 
 def make_embedder(settings: Settings) -> Embedder:
