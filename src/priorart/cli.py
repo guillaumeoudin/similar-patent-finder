@@ -66,7 +66,10 @@ def cmd_index(settings: Settings, confirmed: bool, reset: bool, vectors_dir: Pat
             return
 
     store = Store(settings.database_url, dim)
-    store.reset() if reset else store.init_schema()
+    if reset:
+        store.reset()
+    else:
+        store.init_schema()
     for p in patents:
         store.add_patent(p)
     done = set() if reset else store.chunk_ids()
