@@ -15,11 +15,11 @@ Finding prior art is slow and easy to get wrong, for two reasons.
 
 You paste a description of an invention. It returns up to ten patents, closest first. For each one you see the passages that match best.
 
-In a second mode, a language model also writes a short comment on what is close and what is different, with one quote per patent. The quote is not taken on trust: the program looks for it word for word in the patent text. A quote it cannot find is dropped and the whole answer is flagged as unreliable.
+In a second mode, a language model also writes a short comment on what is close and what is different, with one quote per patent. The model must copy an excerpt from the patent. The program then searches for that excerpt in the real patent text, like a Ctrl+F. If it is found, the quote is shown. If it is not, the model made it up or altered it, so the quote is removed and the whole answer is marked unreliable.
 
 If nothing in the collection is close enough, the tool says so instead of guessing.
 
-There is a command line, and a small web page for people who prefer a browser.
+There is a command line, and a small web page for people who prefer a browser. Both run on your own machine. Nothing is hosted online (see "Running it").
 
 ## How I tested it
 
