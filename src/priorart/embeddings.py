@@ -7,6 +7,7 @@ local open model (sentence-transformers). Which one is used is a configuration c
 
 from __future__ import annotations
 
+import time
 from typing import Protocol
 
 from priorart.config import Settings
@@ -68,6 +69,50 @@ class MistralEmbedder:
         return vectors
 
 
+class VoyageEmbedder:
+    """Voyage AI through its HTTP API. Retries when the service says "too many requests"."""
+
+    def __init__(self, settings: Settings, batch_size: int = 64, max_retries: int = 8):
+        if not settings.voyage_api_key:
+            raise RuntimeError("VOYAGE_API_KEY is not set")
+        self.name = settings.voyage_model
+        self.dim = settings.voyage_dim
+        self._url = settings.voyage_base_url.rstrip("/") + "/embeddings"
+        self._key = settings.voyage_api_key
+        self._batch = batch_size
+        self._max_retries = max_retries
+        self._sleep = time.sleep
+        self.tokens_used = 0
+
+    def embed(self, texts: list[str], kind: str = "document") -> list[list[float]]:
+        import httpx
+
+        input_type = "query" if kind == "query" else "document"
+        vectors: list[list[float]] = []
+        with httpx.Client(timeout=120) as client:
+            for i in range(0, len(texts), self._batch):
+                body = {"model": self.name, "input": texts[i : i + self._batch],
+                        "input_type": input_type, "output_dimension": self.dim}  # fmt: skip
+                for attempt in range(self._max_retries):
+                    resp = client.post(
+                        self._url, headers={"Authorization": f"Bearer {self._key}"}, json=body
+                    )
+                    if resp.status_code == 429:
+                        wait = float(resp.headers.get("retry-after", 5 * 2**attempt))
+                        self._sleep(min(wait, 65))
+                        continue
+                    resp.raise_for_status()
+                    break
+                else:
+                    raise RuntimeError("Voyage kept answering 'too many requests'")
+                data = resp.json()
+                self.tokens_used += data.get("usage", {}).get("total_tokens", 0)
+                vectors.extend(
+                    d["embedding"] for d in sorted(data["data"], key=lambda d: d["index"])
+                )
+        return vectors
+
+
 class LocalEmbedder:
     """Open model run on this machine. Needs: pip install -e '.[local]'."""
 
@@ -91,6 +136,8 @@ class LocalEmbedder:
 def make_embedder(settings: Settings) -> Embedder:
     if settings.embedder == "mistral":
         return MistralEmbedder(settings)
+    if settings.embedder == "voyage":
+        return VoyageEmbedder(settings)
     if settings.embedder == "local":
         return LocalEmbedder(settings)
     raise ValueError(f"Unknown EMBEDDER: {settings.embedder}")

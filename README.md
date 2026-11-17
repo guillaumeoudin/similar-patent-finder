@@ -74,6 +74,8 @@ cp .env.example .env        # then add your API keys
 docker compose -f docker_compose.yml up -d
 ```
 
+Embedders (set `EMBEDDER` in `.env`): `local` is an open model run on your machine (default, no key, `pip install -e ".[local]"`). `voyage` and `mistral` call a web API and need a key. Only the local embedder and its results are measured in this README so far.
+
 Prepare the data (see section 5 for where to get the files):
 
 ```bash

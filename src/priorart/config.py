@@ -26,11 +26,15 @@ def load_dotenv(path: Path = Path(".env")) -> None:
 class Settings:
     database_url: str = "postgresql://priorart:priorart@localhost:5432/priorart"
     # embeddings
-    embedder: str = "mistral"  # "mistral" or "local"
+    embedder: str = "local"  # "local", "voyage" or "mistral"
     mistral_api_key: str = ""
     mistral_base_url: str = "https://api.mistral.ai/v1"
     embed_model: str = "mistral-embed"
     embed_dim: int = 1024
+    voyage_api_key: str = ""
+    voyage_base_url: str = "https://api.voyageai.com/v1"
+    voyage_model: str = "voyage-4-lite"
+    voyage_dim: int = 1024
     local_embed_model: str = "intfloat/multilingual-e5-small"
     local_embed_dim: int = 384
     embed_price_per_m_tokens: float = 0.0  # in your currency; set it to get a cost estimate
@@ -48,7 +52,8 @@ class Settings:
 
     @property
     def dim(self) -> int:
-        return self.local_embed_dim if self.embedder == "local" else self.embed_dim
+        dims = {"local": self.local_embed_dim, "voyage": self.voyage_dim}
+        return dims.get(self.embedder, self.embed_dim)
 
 
 def _f(name: str, default: float) -> float:
@@ -69,6 +74,10 @@ def load_settings() -> Settings:
         mistral_base_url=os.environ.get("MISTRAL_BASE_URL", d.mistral_base_url),
         embed_model=os.environ.get("EMBED_MODEL", d.embed_model),
         embed_dim=_i("EMBED_DIM", d.embed_dim),
+        voyage_api_key=os.environ.get("VOYAGE_API_KEY", ""),
+        voyage_base_url=os.environ.get("VOYAGE_BASE_URL", d.voyage_base_url),
+        voyage_model=os.environ.get("VOYAGE_MODEL", d.voyage_model),
+        voyage_dim=_i("VOYAGE_DIM", d.voyage_dim),
         local_embed_model=os.environ.get("LOCAL_EMBED_MODEL", d.local_embed_model),
         local_embed_dim=_i("LOCAL_EMBED_DIM", d.local_embed_dim),
         embed_price_per_m_tokens=_f("EMBED_PRICE_PER_M_TOKENS", d.embed_price_per_m_tokens),
