@@ -320,7 +320,7 @@ const INFO = {
     para("The order of the results comes from merging two rankings of the passages: one from the semantic search and one from the keyword search."),
     para("Each passage earns points from its place in each ranking: 1 divided by (60 + its place). The points from the two rankings are added up, the passages are sorted by that total (the reciprocal rank fusion score), then grouped by patent. A patent that is well placed in both rankings beats one that is very well placed in only one."),
     para("Example: patent A is 1st in the semantic search and 8th in the keyword search: 1/61 + 1/68 = 0.0311. Patent B is 3rd and 1st: 1/63 + 1/61 = 0.0323. B comes before A."),
-    para("The percentage shown on each patent does not decide the order. It is the Similarity from the semantic search, explained by the i next to it."),
+    para("The percentage shown on each patent does not decide the order."),
   ],
   similarity: () => [
     para(`Similarity is the cosine similarity between your text and the best matching passage of the patent, computed by ${models.embedding} for the semantic search and shown as a percentage.`),
