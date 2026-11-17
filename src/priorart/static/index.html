@@ -95,6 +95,7 @@
     background: var(--surface); color: var(--accent); cursor: pointer; padding: 0;
     font: italic 700 .95rem Georgia, "Times New Roman", serif;
   }
+  .choice button.info { width: 24px; height: 24px; margin-left: 6px; vertical-align: middle; font-size: .85rem; }
   button.info[aria-expanded="true"] { background: var(--accent); color: var(--accent-text); }
   .cost {
     background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 6px 10px;
@@ -212,21 +213,18 @@
     <div class="cards" id="modeCards" role="radiogroup" aria-label="What do you want?">
       <label class="choice on" id="choiceSearch">
         <input type="radio" name="mode" value="search" checked><span class="dot"></span>
-        <b>Similar patents</b>
+        <b>Similar patents <button type="button" class="info" data-info="search" aria-expanded="false" aria-label="More information" title="More information">i</button></b>
         <small>Searches semantically and by keywords, then shows the 10 closest patents with the matching passages.</small>
       </label>
       <label class="choice" id="choiceAnswer">
         <input type="radio" name="mode" value="answer"><span class="dot"></span>
-        <b>Similar patents + AI comparison</b>
+        <b>Similar patents + AI comparison <button type="button" class="info" data-info="explain" aria-expanded="false" aria-label="More information" title="More information">i</button></b>
         <small id="subExplain"></small>
       </label>
     </div>
 
     <div class="stack">
-      <div class="btnrow">
-        <button class="primary full" id="go" type="button" disabled>Find similar patents</button>
-        <button type="button" class="info" data-info="mode" aria-expanded="false" aria-label="More information" title="More information">i</button>
-      </div>
+      <button class="primary full" id="go" type="button" disabled>Find similar patents</button>
       <div class="cost" id="cost" role="note"></div>
     </div>
   </form>
@@ -311,7 +309,6 @@ const INFO = {
     para(`Runs the same search, then sends your text and the best passages to ${models.answer}. The model must give, for each close patent, a quote copied from the patent, what overlaps with your idea and what differs.`),
     para("The program then looks for every quote in the patent text, word for word, and flags any it cannot find. It is a first read of overlaps and differences before you read the patents. It does not say whether your idea is new or patentable."),
   ] : [para("Not available in this online demo, because it needs an AI model account. It can be run locally.")],
-  mode: () => (mode() === "answer" ? INFO.explain() : INFO.search()),
   models: () => [
     para("Search model: the model that measures how close two texts are in meaning. It turns your text and the patent passages into lists of numbers, and the closest numbers are the closest meanings. It runs on every search."),
     para(models.answer
@@ -347,7 +344,7 @@ function openInfo(btn) {
   openButton = btn;
   placeInfo(btn);
 }
-document.querySelectorAll("button.info").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); openInfo(b); }));
+document.querySelectorAll("button.info").forEach((b) => b.addEventListener("click", (ev) => { ev.preventDefault(); ev.stopPropagation(); openInfo(b); }));
 $("popoverClose").addEventListener("click", closeInfo);
 document.addEventListener("click", (ev) => { if (!$("popover").contains(ev.target)) closeInfo(); });
 document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeInfo(); });
