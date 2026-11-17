@@ -1,47 +1,28 @@
-# Similar Patent Finder (V1 demo)
+# Similar Patent Finder
 
-Prior art search over patents, with citations checked against the source text. A small, measured tool that finds patents close to an invention description and shows the exact passage that justifies each match.
+You describe an invention in a few lines. The tool searches a collection of patents, shows the closest ones, and quotes the exact passage that makes each of them close. Every quote is checked against the patent text before it is shown.
 
-"Prior art" is the trade word for any earlier public document that shows an invention already exists. "Art" here means the existing technical knowledge of a field, not painting or music.
+A word on vocabulary. In patent work, "prior art" means any earlier public document that shows an invention already exists. In French it is an antériorité. "Art" here has nothing to do with painting. It is the old sense of a craft or a body of technical knowledge.
 
-This is a demonstration project, not a product. It does not give legal advice.
+## Why I built it
 
-**Status:** data, chunking, indexing, search and evaluation run end to end on the development set with an open embedding model. The test set has not been run. The answer step (cited comparison) ran once by hand on one description, with all four quotes verified, and has not been evaluated on the development set yet.
+Before filing a patent, an attorney looks for earlier patents that describe the same thing. Keyword search misses a lot, because the same idea gets written in different words. A wireless charger is also called an inductive power transfer device.
 
-## 1. The problem, in plain words
+Search on meaning fixes part of that. The risk is that a language model makes up a source or calls a document relevant when it is not. Someone who signs the advice cannot use an answer they cannot check. So the rule in this project is simple: no quote is shown unless the program finds it word for word in the patent.
 
-Before filing a patent, a patent attorney checks that the invention does not already exist. A document that shows it already exists is called prior art (in French, an antériorité).
+I also wanted numbers. The project is measured against patents that examiners themselves cited, and the results below are the real ones, including the ones that are not flattering.
 
-Searching by keywords misses documents that describe the same thing with other words. A "wireless charger" can be called an "inductive power transfer device".
+## What it does
 
-An AI system can help by searching on meaning. But AI can also invent a source, or call a document relevant when it is not. A professional who is responsible for the advice cannot use an answer without proof.
+Given a description, it returns up to ten patents. For each one you see the best matching passages. In the second mode, a language model also writes a short comment on what is close and what is different, with one quote per patent. If nothing in the collection is close enough, it says so instead of guessing.
 
-## 2. What the tool does
+There is a command line, and a small web page for people who prefer a browser.
 
-You describe an invention in a few lines. The tool then:
+## How it works
 
-1. finds the closest patents in a small collection;
-2. shows, for each one, an exact passage copied from the patent;
-3. says in a few words what is close and what is different;
-4. says "no document close enough" when nothing is close.
+Patent texts are cut into pieces, one per abstract and one per claim, and each piece keeps its patent number and position. Each piece is turned into a vector of numbers by an embedding model, so that pieces with similar meaning get similar vectors. Text, vectors and a keyword index all live in one PostgreSQL database with the pgvector extension.
 
-Every quoted passage is checked by the program against the source text. If a quote cannot be found word for word, it is rejected and the answer is marked unreliable. The program does not trust the AI on this point.
-
-The quality is measured on a test built from real examiner decisions (see section 6).
-
-## 3. How it works, step by step
-
-| Step | What happens | Why it matters |
-|---|---|---|
-| Data | Public patent texts and the list of documents each patent cites | The citations chosen by patent examiners give an independent answer key |
-| Chunking | Each abstract and each claim becomes one searchable piece, with its patent number and position | Every result can be traced to its source |
-| Embeddings | Each piece is turned into a list of numbers that captures its meaning | Pieces with similar meaning get similar numbers, even with different words |
-| Storage | One PostgreSQL database holds the text, the numbers and a keyword index | One system to run, secure and back up |
-| Hybrid search | A keyword ranking and a meaning ranking are merged | Keywords catch exact terms, meaning catches paraphrases |
-| Answer | An AI model reads the best passages and writes a short comparison with quotes | Readable output for a professional |
-| Citation check | The program looks for each quote in the source text | No invented sources |
-| Abstention | If even the best match is too weak, the tool says so | A wrong answer is worse than no answer |
-| Evaluation | Recall, ranking quality, citation check rate, cost and speed are measured | Claims are backed by numbers |
+A search runs twice, once by keywords and once by vectors, and the two rankings are merged with reciprocal rank fusion. The best passages go to a language model, which must answer in JSON with an excerpt copied from a passage. The program then looks for each excerpt in the passage it came from, after normalizing spaces and quote styles. An excerpt that is not found is dropped and the whole answer is flagged as unreliable. If even the best vector similarity is under a threshold, the tool abstains.
 
 ```mermaid
 flowchart LR
@@ -59,9 +40,9 @@ flowchart LR
     J --> K[Answer with verified quotes]
 ```
 
-The embedder and the answer model sit behind small interfaces (`Embedder`, `Answerer`). Changing the model is a configuration change.
+The embedder and the answer model sit behind two small interfaces, `Embedder` and `Answerer`, so changing a model is a setting and not a code change.
 
-## 4. Install and run
+## Running it
 
 You need Python 3.11 or newer and Docker.
 
@@ -70,26 +51,28 @@ git clone https://github.com/guillaumeoudin/similar-patent-finder.git
 cd similar-patent-finder
 python -m venv .venv && source .venv/bin/activate   # on Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-cp .env.example .env        # then add your API keys
+cp .env.example .env
 docker compose -f docker_compose.yml up -d
 ```
 
-Embedders (set `EMBEDDER` in `.env`): `local` is an open model run on your machine (default, no key, `pip install -e ".[local]"`). `voyage` and `mistral` call a web API and need a key. Only the local embedder and its results are measured in this README so far.
+The embedder is chosen with `EMBEDDER` in `.env`. `local` runs an open model on your machine, needs no key and is the default (`pip install -e ".[local]"`). `voyage` and `mistral` call a web API and need a key. Only the local one is measured below.
 
-Prepare the data (see section 5 for where to get the files):
+Once the data is in place (see the next section):
 
 ```bash
-python eval/build_dataset.py      # choose the evaluation corpus
-python -m priorart.ingest         # build clean records
-priorart index                    # shows the size and cost estimate, sends nothing
+python eval/build_dataset.py      # picks the evaluation corpus
+python -m priorart.ingest         # builds clean records
+priorart index                    # prints the size and a cost estimate, sends nothing
 priorart index --yes              # embeds and stores
 priorart search "a charging pad with a coil that detects metal objects"
 priorart answer "a charging pad with a coil that detects metal objects"
 ```
 
-The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default) or an API key (`ANSWERER=api`). The command line mode cannot set the temperature, so answers are not strictly repeatable.
+The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default), or an API key (`ANSWERER=api`). The command line mode cannot set the temperature, so two runs can differ.
 
-Run the checks:
+The web page needs `pip install -e ".[api]"`, then `uvicorn priorart.api:app`, and opens at http://127.0.0.1:8000. It listens on the local machine only and has no login, so do not expose it to a network. The embeddings can also be computed on a different machine and copied over, see `docs/gpu_machine.md`.
+
+Tests and the development evaluation:
 
 ```bash
 ruff check .
@@ -97,117 +80,51 @@ pytest -q
 python eval/run_eval.py --set dev
 ```
 
-### Web page
+## Data
 
-```bash
-pip install -e ".[api]"
-uvicorn priorart.api:app
-```
+The patents come from the PatentsView tables, distributed by the USPTO Open Data Portal. I kept one narrow field, wireless power transfer (CPC group H02J 50), for patents granted from 2015 to 2025. The raw files are not in this repository. You download them yourself from the portal, which needs a free USPTO.gov account, and put them in `data/raw/`. The list of tables is in `DATA_LICENSES.md`, along with the license statement, the date I accessed the data and what I could and could not verify.
 
-Open http://127.0.0.1:8000 (the address `uvicorn` prints). Type a description or pick an example. Two modes:
+Data derived from PatentsView. This project is not endorsed by, or affiliated with, PatentsView or the USPTO.
 
-- **Find similar patents**: fast, shows the best passages.
-- **Find and explain**: also writes what is close and what differs. Each quote carries a "verified" badge, or a warning when the program could not find the quote in the patent text.
+## How I measure it
 
-The page talks to two endpoints, `POST /search` and `POST /answer`, which can also be called directly. The service listens on the local machine only and has no login. Do not expose it to a network as it is.
+The answer key is the list of references that the patent examiner cited in each patent, restricted to references that are in my corpus. I took 70 patents with a fixed random seed, each with 3 to 8 such references: 20 for development, where I tune settings, and 50 for testing, which I run once at the very end. A query is a patent's abstract plus its first claim, without its references, and the patent itself is removed from the results. The corpus has 500 patents: the 70 queries, their expected references, and random patents from the same field.
 
-### Computing embeddings on another machine
+For abstention I wrote twenty descriptions of things that are not in the corpus. The first ten are plainly off topic and were used to set the threshold. The last ten describe other electrical devices, such as wired charging or solar inverters, and were kept aside only to be reported.
 
-See `docs/gpu_machine.md`.
+## Results
 
-## 5. Data and licenses
-
-The corpus uses granted US patents from the PatentsView tables, distributed by the USPTO Open Data Portal. It covers one narrow technical field: wireless power transfer (CPC group H02J 50), patents granted from 2015 to 2025.
-
-Raw data is not stored in this repository. Download the tables listed in `DATA_LICENSES.md` from the Open Data Portal (a free USPTO.gov account is required) and place them in `data/raw/`.
-
-Data derived from PatentsView. This project is not endorsed by, or affiliated with, PatentsView or the USPTO. See `DATA_LICENSES.md` for the license statement, the date of access and what was verified.
-
-## 6. Evaluation protocol
-
-Answer key: the references that a patent examiner cited in each patent. Only references that are inside the corpus count.
-
-- 70 patents are chosen with a fixed random seed: 20 for development (tuning) and 50 for testing.
-- The test set is run once, at the end.
-- Each query is the abstract plus the first claim of a patent, without its references.
-- The patent itself is removed from the results.
-- Each of these patents has 3 to 8 expected references in the corpus.
-- The corpus holds 500 patents: the queries, their expected references and random other patents from the same field.
-
-Ten off-topic descriptions test that the tool abstains when nothing is close.
-
-## 7. Results
-
-Test set: not run yet. It will be run once, at the end, from the logs in `eval/results/`. Development set numbers are in the next table.
-
-| Metric | Development set | Test set |
-|---|---|---|
-| Recall at 5 | pending | pending |
-| Recall at 10 | pending | pending |
-| Mean reciprocal rank | pending | pending |
-| Citations verified in the source | pending | pending |
-| Abstention on off-topic descriptions | pending | pending |
-| Mean latency per query | pending | pending |
-| Mean cost per query | pending | pending |
-
-### Development set results (measured)
-
-20 development queries, 9,304 chunks, 500 patents, embeddings from `intfloat/multilingual-e5-small` computed on a local GPU (384 dimensions). Settings were tuned on this same set, so these numbers are optimistic. The test set has not been run.
+The test set has not been run yet, so there is no test result here. These are development numbers, on 20 queries, with the open model `intfloat/multilingual-e5-small` (384 dimensions) computed on my own GPU. I tuned the settings on these same queries, so the numbers are optimistic.
 
 | System | Recall at 5 | Recall at 10 | MRR |
 |---|---|---|---|
-| Keyword only, BM25 in Python (baseline) | 0.41 | 0.49 | 0.68 |
-| Keyword only, PostgreSQL full text search | 0.41 | 0.45 | 0.73 |
-| Vector only | 0.43 | 0.52 | 0.76 |
-| Hybrid (rank fusion, k = 60, 50 candidates) | 0.40 | 0.47 | 0.80 |
+| Keywords only, BM25 in Python | 0.41 | 0.49 | 0.68 |
+| Keywords only, PostgreSQL full text search | 0.41 | 0.45 | 0.73 |
+| Vectors only | 0.43 | 0.52 | 0.76 |
+| Hybrid (k = 60, 50 candidates) | 0.40 | 0.47 | 0.80 |
 
-What these numbers say, and do not say:
+With 20 queries, a gap of a few points is noise, and the four rows are close. The hybrid search puts the first correct patent higher up (MRR 0.80), but it does not find more of the expected patents than vectors alone. I had expected the hybrid to win more clearly, and on this set it does not.
 
-- With 20 queries, differences of a few points are noise. The four systems are close.
-- The hybrid search ranks the first correct document higher (MRR 0.80), but it does not find more of the expected documents than vector search alone. On this set it does not beat the vector only search on recall.
-- About 6 of 15 hand read misses are references that no similarity search should be expected to find (see the failure analysis files), which caps the recall of every system.
-- Late finding: an earlier keyword query cut to its first 60 terms and ranked with `ts_rank_cd` had a recall at 10 of 0.35. Using every term with `ts_rank` and length normalization raised it to 0.45.
+One mistake worth telling. My first PostgreSQL keyword search cut the query to its first 60 terms and ranked with `ts_rank_cd`, and it reached only 0.35 recall at 10, well below the plain Python baseline. Using every term with `ts_rank` and length normalization brought it to 0.45.
 
-Abstention: the similarity threshold (0.862) was set halfway between the lowest development query (0.892) and the highest of ten clearly off-topic descriptions (0.832). On ten held out descriptions of other electrical devices (wired charging, batteries, solar inverters), the tool abstained 10 times out of 10, and on the 20 development queries it abstained 0 times. These ten descriptions were written by hand and are few, so this says little about harder cases.
+The abstention threshold is 0.862 cosine similarity, halfway between the weakest development query (0.892) and the closest of the ten off-topic descriptions (0.832). On the ten held-out descriptions the tool abstained ten times out of ten, and it never abstained on the 20 real queries. Ten hand-written descriptions say little about harder cases.
 
-Mean latency per query: 0.38 s for search only, local model on a GPU. Cost of the search: none (the open model ran locally).
+Search takes 0.38 s per query with the local model, and costs nothing.
 
-Answer step, same 20 development queries, through a Claude subscription (`ANSWERER=claude-code`):
+The answer step was run on the same 20 queries through a Claude subscription. It returned 34 quotes, and all 34 were found word for word in the source. None was rejected and none of the 20 answers was flagged. A query takes 8.2 s from search to answer. A verified quote proves the text is in the cited patent. It does not prove that the comment on what is close and different is right, and I only read that part by hand on one example. The token count I measured (405,000 in, 12,500 out) includes the overhead of the command line tool, so a direct API call would use less.
 
-| Measure | Value |
-|---|---|
-| Quotes returned | 34 (about 1.7 per query) |
-| Quotes found word for word in the source | 34 of 34 |
-| Quotes rejected | 0 |
-| Answers flagged unreliable | 0 of 20 |
-| Mean time per query, search and answer | 8.2 s |
+## Where it fails
 
-What this does not show: a verified quote proves the text exists in the cited patent. It does not prove that the comment on what is close and what differs is right. That part was read by hand on one example only. The measured token count (405,000 in, 12,500 out) includes the overhead of the command line tool, so it overstates what a direct API call would use. The model does not set the temperature in this mode, so a second run may differ.
+I read 15 missed references from the keyword baseline by hand, picked at random (`eval/failure_analysis_bm25_dev.md`). Seven were the same idea in other words, for example "cloth" and "fabric", or "mousepad" and "mouse pad". Six were references only loosely related to the query, such as a mechanical part cited against an electrical one. One was a different sub-technology, and one was a query that was mostly about something else. About half of the misses look like something a meaning-based search can fix. The other half no similarity search should be expected to find, which puts a ceiling on recall. This reading was done by one person, on the baseline and not on the final system. A new one will follow the test run.
 
-## 8. Failure analysis
+## Limits
 
-Pending. After the test run, 15 failed cases will be read by hand and sorted by cause.
+The answer key only counts examiner citations that point to a patent inside my field and inside my corpus. Most citations point elsewhere, and a cited patent is not always the closest one, so the key measures agreement with examiners and not truth. Only abstracts and claims are indexed. The description files are very large, so descriptions are out, and a passage that exists only in a description cannot be found. Dependent claims such as "the device of claim 1, wherein" say little on their own. The corpus is small, 500 patents, so the results will not carry over as they are to millions of documents. The threshold is tuned on 20 queries. It covers US patents in English only.
 
-## 9. Limits
+## Disclaimer
 
-These are known now, before any run.
+This is a technical project. It does not tell you whether an invention is new or patentable, and it should not be used to make legal decisions.
 
-- Only examiner citations to patents inside the field and inside the corpus are used. Most citations point elsewhere, so the answer key is incomplete.
-- A cited document is not always the closest document. The key measures agreement with examiners, not truth.
-- Only abstracts and claims are indexed. Descriptions were left out because the files are very large. Passages that only appear in descriptions cannot be found.
-- Dependent claims such as "the device of claim 1, wherein..." are weak on their own.
-- The corpus is small (500 patents). Results will not transfer directly to millions of documents.
-- The similarity threshold for abstention is tuned on 20 queries.
-- US patents only, in English.
-- Token counts and cost figures are estimates until a real run replaces them.
+## Next
 
-## 10. Not legal advice
-
-This project is a technical demonstration. It does not say whether an invention is new or patentable. Do not use it to make legal decisions.
-
-## 11. Ideas for V2
-
-- Compare the API embedder with an open model served on a remote GPU machine: recall, citation quality, speed and cost.
-- Add a reranker.
-- Index description paragraphs.
-- Compare several answer models.
+Compare the API embedders with open models served from a remote GPU machine, on recall, citation quality, speed and cost. Add a reranker. Index description paragraphs.

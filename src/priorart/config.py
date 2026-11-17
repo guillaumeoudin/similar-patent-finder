@@ -35,6 +35,8 @@ class Settings:
     voyage_base_url: str = "https://api.voyageai.com/v1"
     voyage_model: str = "voyage-4-lite"
     voyage_dim: int = 1024
+    voyage_rpm: int = 0  # requests per minute allowed by your account, 0 = no pacing
+    voyage_tpm: int = 0  # tokens per minute allowed by your account, 0 = no pacing
     local_embed_model: str = "intfloat/multilingual-e5-small"
     local_embed_dim: int = 384
     embed_price_per_m_tokens: float = 0.0  # in your currency; set it to get a cost estimate
@@ -78,6 +80,8 @@ def load_settings() -> Settings:
         voyage_base_url=os.environ.get("VOYAGE_BASE_URL", d.voyage_base_url),
         voyage_model=os.environ.get("VOYAGE_MODEL", d.voyage_model),
         voyage_dim=_i("VOYAGE_DIM", d.voyage_dim),
+        voyage_rpm=_i("VOYAGE_RPM", d.voyage_rpm),
+        voyage_tpm=_i("VOYAGE_TPM", d.voyage_tpm),
         local_embed_model=os.environ.get("LOCAL_EMBED_MODEL", d.local_embed_model),
         local_embed_dim=_i("LOCAL_EMBED_DIM", d.local_embed_dim),
         embed_price_per_m_tokens=_f("EMBED_PRICE_PER_M_TOKENS", d.embed_price_per_m_tokens),

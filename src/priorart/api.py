@@ -21,7 +21,7 @@ from priorart.store import Store
 STATIC = Path(__file__).parent / "static"
 DISCLAIMER = "This is not legal advice."
 
-app = FastAPI(title="Prior art search (demo, not legal advice)")
+app = FastAPI(title="Similar Patent Finder")
 _settings = load_settings()
 _state: dict = {}
 

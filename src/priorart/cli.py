@@ -69,14 +69,20 @@ def cmd_index(settings: Settings, confirmed: bool, reset: bool, vectors_dir: Pat
     store.reset() if reset else store.init_schema()
     for p in patents:
         store.add_patent(p)
+    done = set() if reset else store.chunk_ids()
+    todo = [i for i, c in enumerate(chunks) if c.chunk_id not in done]
+    if done:
+        print(f"{len(done)} chunks already stored, {len(todo)} left")
     batch = 256
-    for i in range(0, len(chunks), batch):
-        part = chunks[i : i + batch]
-        vecs = (
-            vectors[i : i + batch] if embed_chunks is None else embed_chunks([c.text for c in part])
-        )
+    for first in range(0, len(todo), batch):
+        idx = todo[first : first + batch]
+        part = [chunks[i] for i in idx]
+        if embed_chunks is None:
+            vecs = [vectors[i] for i in idx]
+        else:
+            vecs = embed_chunks([c.text for c in part])
         store.add_chunks(part, vecs)
-        print(f"  {min(i + batch, len(chunks))}/{len(chunks)}")
+        print(f"  {min(first + batch, len(todo))}/{len(todo)}", flush=True)
     print(f"done. chunks in database: {store.count_chunks()}")
 
 

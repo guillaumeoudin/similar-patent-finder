@@ -105,6 +105,9 @@ class Store:
                 ],
             )  # fmt: skip
 
+    def chunk_ids(self) -> set[str]:
+        return {r[0] for r in self._conn.execute("SELECT chunk_id FROM chunks").fetchall()}
+
     def count_chunks(self) -> int:
         return self._conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
 

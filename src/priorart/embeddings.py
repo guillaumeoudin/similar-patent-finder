@@ -70,19 +70,63 @@ class MistralEmbedder:
 
 
 class VoyageEmbedder:
-    """Voyage AI through its HTTP API. Retries when the service says "too many requests"."""
+    """Voyage AI through its HTTP API.
 
-    def __init__(self, settings: Settings, batch_size: int = 64, max_retries: int = 8):
+    Requests are cut by size, and paced when the account has rate limits (for example 3
+    requests and 10,000 tokens per minute without a payment method). It also retries when the
+    service answers "too many requests".
+    """
+
+    SAFETY = 0.85  # our token estimate runs a little high, this brings it closer to the real count
+
+    def __init__(self, settings: Settings, max_inputs: int = 128, max_retries: int = 8):
         if not settings.voyage_api_key:
             raise RuntimeError("VOYAGE_API_KEY is not set")
         self.name = settings.voyage_model
         self.dim = settings.voyage_dim
         self._url = settings.voyage_base_url.rstrip("/") + "/embeddings"
         self._key = settings.voyage_api_key
-        self._batch = batch_size
+        self._max_inputs = max_inputs
         self._max_retries = max_retries
+        self._rpm = settings.voyage_rpm
+        self._tpm = settings.voyage_tpm
+        # one request must fit well inside the per minute token budget
+        self._max_batch_tokens = int(self._tpm * 0.7) if self._tpm else 100_000
         self._sleep = time.sleep
+        self._now = time.monotonic
+        self._recent: list[tuple[float, int]] = []
         self.tokens_used = 0
+
+    def _cost(self, texts: list[str]) -> int:
+        return int(estimate_tokens(texts) * self.SAFETY) + 1
+
+    def _batches(self, texts: list[str]) -> list[list[str]]:
+        batches: list[list[str]] = []
+        current: list[str] = []
+        used = 0
+        for text in texts:
+            cost = self._cost([text])
+            full = len(current) >= self._max_inputs or used + cost > self._max_batch_tokens
+            if current and full:
+                batches.append(current)
+                current, used = [], 0
+            current.append(text)
+            used += cost
+        if current:
+            batches.append(current)
+        return batches
+
+    def _pace(self, tokens: int) -> None:
+        """Wait until sending this request keeps us inside the per minute limits."""
+        while True:
+            now = self._now()
+            self._recent = [(t, n) for t, n in self._recent if now - t < 60]
+            too_many = bool(self._rpm) and len(self._recent) >= self._rpm
+            too_big = bool(self._tpm) and sum(n for _, n in self._recent) + tokens > self._tpm
+            if not (too_many or too_big):
+                break
+            self._sleep(max(1.0, 60.5 - (now - self._recent[0][0])))
+        self._recent.append((self._now(), tokens))
 
     def embed(self, texts: list[str], kind: str = "document") -> list[list[float]]:
         import httpx
@@ -90,9 +134,14 @@ class VoyageEmbedder:
         input_type = "query" if kind == "query" else "document"
         vectors: list[list[float]] = []
         with httpx.Client(timeout=120) as client:
-            for i in range(0, len(texts), self._batch):
-                body = {"model": self.name, "input": texts[i : i + self._batch],
-                        "input_type": input_type, "output_dimension": self.dim}  # fmt: skip
+            for batch in self._batches(texts):
+                self._pace(self._cost(batch))
+                body = {
+                    "model": self.name,
+                    "input": batch,
+                    "input_type": input_type,
+                    "output_dimension": self.dim,
+                }
                 for attempt in range(self._max_retries):
                     resp = client.post(
                         self._url, headers={"Authorization": f"Bearer {self._key}"}, json=body
@@ -107,9 +156,8 @@ class VoyageEmbedder:
                     raise RuntimeError("Voyage kept answering 'too many requests'")
                 data = resp.json()
                 self.tokens_used += data.get("usage", {}).get("total_tokens", 0)
-                vectors.extend(
-                    d["embedding"] for d in sorted(data["data"], key=lambda d: d["index"])
-                )
+                ordered = sorted(data["data"], key=lambda d: d["index"])
+                vectors.extend(d["embedding"] for d in ordered)
         return vectors
 
 
