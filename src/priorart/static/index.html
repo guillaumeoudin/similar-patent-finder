@@ -10,6 +10,7 @@
     --accent: #1f5fd1; --accent-text: #ffffff; --accent-soft: #e8f0fd;
     --ok: #1a7f4b; --ok-soft: #e5f5ec; --warn: #9a5b00; --warn-soft: #fff3dc;
     --bad: #b3261e; --bad-soft: #fdeceb; --quote: #f1f4f9; --radius: 12px;
+    --pop-bg: #1f2a3d; --pop-text: #eef2f8; --pop-link: #9cc7ff; --pop-muted: #c1cbdb;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -17,6 +18,7 @@
       --accent: #6ea0ff; --accent-text: #0c1424; --accent-soft: #1d2a43;
       --ok: #5fd196; --ok-soft: #163226; --warn: #f0b45a; --warn-soft: #3a2c12;
       --bad: #ff8f87; --bad-soft: #3b1b19; --quote: #222a36;
+      --pop-bg: #34435c; --pop-text: #f3f6fb; --pop-link: #a9ccff; --pop-muted: #cdd6e4;
     }
   }
   * { box-sizing: border-box; }
@@ -43,20 +45,27 @@
   .corpusrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
   .corpusrow label { margin: 0; }
   .selectwrap { position: relative; flex: 0 1 auto; }
-  .selectwrap::after {
-    content: ""; position: absolute; right: 15px; top: 50%; width: 7px; height: 7px; pointer-events: none;
-    border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
-    transform: translateY(-70%) rotate(45deg); transition: transform .15s;
+  .dd {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 250px; max-width: 100%;
+    padding: 8px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(20, 30, 50, .08);
   }
-  .selectwrap:focus-within::after { transform: translateY(-30%) rotate(225deg); }
-  #corpus {
-    appearance: none; -webkit-appearance: none; width: auto; min-width: 250px; max-width: 100%;
-    padding: 8px 38px 8px 16px; border-radius: 999px; font-weight: 600; cursor: pointer; color: var(--text);
-    border: 1px solid var(--border); background: linear-gradient(180deg, var(--surface), var(--accent-soft));
-    box-shadow: 0 1px 2px rgba(20, 30, 50, .10); transition: border-color .15s, box-shadow .15s;
+  .dd:hover { border-color: var(--muted); }
+  .dd .chev {
+    flex: none; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg) translateY(-2px); transition: transform .15s;
   }
-  #corpus:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(31, 95, 209, .18); }
-  @media (max-width: 640px) { .selectwrap { flex: 1 1 100%; } #corpus { width: 100%; } }
+  .dd[aria-expanded="true"] .chev { transform: rotate(225deg) translateY(-2px); }
+  .ddlist {
+    position: absolute; z-index: 15; left: 0; min-width: 100%; margin: 6px 0 0; padding: 6px; list-style: none;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .16);
+  }
+  .ddlist li { padding: 10px 12px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
+  .ddlist li:hover, .ddlist li:focus { background: var(--bg); outline: none; }
+  .ddlist li[aria-selected="true"] { font-weight: 700; }
+  .ddlist li[aria-selected="true"]::after { content: "\2713"; margin-left: 16px; color: var(--muted); }
+  @media (max-width: 640px) { .selectwrap { flex: 1 1 100%; } .dd { width: 100%; } .ddlist { right: 0; } }
   select, input[type=password] {
     width: 100%; padding: 10px 12px; border-radius: 10px; font: inherit;
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
@@ -64,7 +73,7 @@
   .dataset-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
   .dataset-info div { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
   .dataset-info b { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
-  .dataset-desc { margin: 12px 0 0; }
+  .dataset-desc { margin: 10px 0 0; }
   textarea {
     width: 100%; min-height: 150px; resize: vertical; padding: 12px; border-radius: 10px;
     border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit;
@@ -81,7 +90,7 @@
     border-radius: 999px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: .88rem;
   }
   .chip:hover { background: var(--accent-soft); }
-  .models { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+  .models { margin: 16px 0 0; }
   .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
   @media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
   .choice {
@@ -108,7 +117,7 @@
   button:disabled { opacity: .5; cursor: not-allowed; }
   button.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
   button.info {
-    flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+    flex: none; display: inline-block; vertical-align: middle; line-height: 1; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
     background: var(--surface); color: var(--accent); cursor: pointer; padding: 0;
     font: italic 700 .95rem Georgia, "Times New Roman", serif;
   }
@@ -119,15 +128,16 @@
     font-size: .82rem; font-weight: 600; line-height: 1.4;
   }
   .popover {
-    position: absolute; z-index: 20; background: var(--surface); color: var(--text);
-    border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 40px 14px 14px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, .22); font-size: .9rem; line-height: 1.45;
+    position: absolute; z-index: 20; background: var(--pop-bg); color: var(--pop-text);
+    border: 1px solid rgba(255, 255, 255, .14); border-radius: var(--radius); padding: 14px 40px 14px 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35); font-size: .9rem; line-height: 1.45;
   }
+  .popover a { color: var(--pop-link); }
   .popover p { margin: 0 0 8px; }
   .popover p:last-child { margin-bottom: 0; }
   .popover .close {
     position: absolute; top: 6px; right: 8px; width: 30px; height: 30px; border: 0; background: none;
-    color: var(--muted); font-size: 1.4rem; line-height: 1; cursor: pointer;
+    color: var(--pop-muted); font-size: 1.4rem; line-height: 1; cursor: pointer;
   }
   #loginMsg { color: var(--bad); margin-top: 8px; }
   #status { margin-top: 14px; }
@@ -146,7 +156,7 @@
   .results-head { margin-top: 34px; padding-top: 18px; border-top: 2px solid var(--border); }
   .results-head h2 { margin: 0; font-size: 1.35rem; }
   .results-head .sub { color: var(--muted); margin: 2px 0 0; }
-  .metric { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--muted); font-size: .92rem; }
+  .metric { margin: 10px 0 0; color: var(--muted); font-size: .92rem; }
   .metric b { color: var(--text); }
   .result { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 14px; }
   .result h3 { margin: 0; font-size: 1.08rem; display: flex; gap: 10px; align-items: flex-start; }
@@ -190,12 +200,15 @@
 
   <section class="card" id="collection">
     <div class="corpusrow">
-      <label class="field" for="corpus">Loaded patents corpus</label>
+      <label class="field" for="corpusBtn">Loaded patents corpus</label>
       <button type="button" class="info" data-info="dataset" aria-expanded="false" aria-label="More information" title="More information">i</button>
-      <div class="selectwrap"><select id="corpus"></select></div>
+      <div class="selectwrap" id="corpusWrap">
+        <button type="button" class="dd" id="corpusBtn" aria-haspopup="listbox" aria-expanded="false"><span id="corpusValue"></span><span class="chev"></span></button>
+        <ul class="ddlist" id="corpusList" role="listbox" aria-label="Loaded patents corpus" hidden></ul>
+      </div>
     </div>
-    <div class="dataset-info" id="datasetInfo"></div>
     <p class="dataset-desc" id="datasetDesc"></p>
+    <div class="dataset-info" id="datasetInfo"></div>
   </section>
 
   <section class="card" id="login" hidden>
@@ -224,10 +237,7 @@
     </div>
     <div class="row"><span class="hint">Try an example:</span><span class="chips" id="examples"></span></div>
 
-    <div class="models">
-      <span class="hint" id="modelsLine"></span>
-      <button type="button" class="info" data-info="models" aria-expanded="false" aria-label="More information" title="More information">i</button>
-    </div>
+    <p class="hint models"><span id="modelsLine"></span> <button type="button" class="info" data-info="models" aria-expanded="false" aria-label="More information" title="More information">i</button></p>
 
     <div class="cards" id="modeCards" role="radiogroup" aria-label="What do you want?">
       <label class="choice on" id="choiceSearch">
@@ -254,8 +264,7 @@
     <div class="results-head">
       <h2>Results</h2>
       <p class="sub" id="resultsSub"></p>
-      <div class="metric"><span>Ranking metric: <b>Reciprocal rank fusion</b> (semantic search + keyword search)</span>
-        <button type="button" class="info" data-info="ranking" aria-expanded="false" aria-label="More information" title="More information">i</button></div>
+      <p class="metric">Ranking metric: <b>Reciprocal rank fusion</b> <button type="button" class="info" data-info="ranking" aria-expanded="false" aria-label="More information" title="More information">i</button></p>
     </div>
     <div id="results"></div>
   </section>
@@ -275,7 +284,7 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const MIN_CHARS = 20;
-let corpora = [], models = {}, cfg = { auth_required: false, answers_enabled: true };
+let corpora = [], models = {}, cfg = { auth_required: false, answers_enabled: true }, corpusId = null;
 
 function el(tag, props = {}, ...children) {
   const node = document.createElement(tag);
@@ -299,7 +308,7 @@ function setStatus(kind, content) {
 }
 
 const mode = () => document.querySelector("input[name=mode]:checked").value;
-const current = () => corpora.find((c) => c.id === $("corpus").value) || null;
+const current = () => corpora.find((c) => c.id === corpusId) || null;
 const pct = (x) => Math.max(0, Math.min(100, Math.round(x * 100)));
 const minPct = () => { const c = current(); return c && c.abstain_below ? Math.round(c.abstain_below * 100) : 0; };
 function storeGet(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
@@ -375,6 +384,7 @@ function openInfo(btn) {
 }
 $("popoverClose").addEventListener("click", closeInfo);
 document.addEventListener("click", (ev) => {
+  if (!$("corpusWrap").contains(ev.target)) closeCorpusList(false);
   const b = ev.target.closest("button.info");
   if (b) { ev.preventDefault(); openInfo(b); return; }
   if (!$("popover").contains(ev.target)) closeInfo();
@@ -388,11 +398,42 @@ async function loadCorpora() {
   let data = { corpora: [], models: {} };
   try { data = await (await fetch("/corpora")).json(); } catch (_) {}
   corpora = data.corpora; models = data.models || {};
-  const select = $("corpus");
-  select.replaceChildren();
-  for (const c of corpora) select.append(el("option", { value: c.id, text: c.label }));
   const saved = storeGet("corpus");
-  if (saved && corpora.some((c) => c.id === saved)) select.value = saved;
+  corpusId = corpora.some((c) => c.id === saved) ? saved : (corpora[0] ? corpora[0].id : null);
+  renderCorpusList();
+  renderCollection();
+}
+
+function renderCorpusList() {
+  const list = $("corpusList");
+  list.replaceChildren();
+  for (const c of corpora) {
+    list.append(el("li", { role: "option", tabindex: "-1", "data-id": c.id,
+      "aria-selected": String(c.id === corpusId), text: c.label }));
+  }
+  const c = current();
+  $("corpusValue").textContent = c ? c.label : "";
+}
+function openCorpusList() {
+  $("corpusList").hidden = false;
+  $("corpusBtn").setAttribute("aria-expanded", "true");
+  const sel = $("corpusList").querySelector('[aria-selected="true"]') || $("corpusList").firstElementChild;
+  if (sel) sel.focus();
+}
+function closeCorpusList(focusButton) {
+  $("corpusList").hidden = true;
+  $("corpusBtn").setAttribute("aria-expanded", "false");
+  if (focusButton) $("corpusBtn").focus();
+}
+function chooseCorpus(id) {
+  closeCorpusList(true);
+  if (id === corpusId) return;
+  corpusId = id;
+  storeSet("corpus", id);
+  $("query").value = "";  // a text written for one corpus makes no sense in another
+  $("results").replaceChildren(); $("resultsSection").hidden = true; setStatus("", "");
+  closeInfo();
+  renderCorpusList();
   renderCollection();
 }
 
@@ -611,12 +652,22 @@ async function start() {
   me.signed_in ? showApp(me) : showLogin("");
 }
 
-$("corpus").addEventListener("change", () => {
-  storeSet("corpus", $("corpus").value);
-  $("query").value = "";  // a text written for one corpus makes no sense in another
-  $("results").replaceChildren(); $("resultsSection").hidden = true; setStatus("", "");
-  closeInfo();
-  renderCollection();
+$("corpusBtn").addEventListener("click", () => ($("corpusList").hidden ? openCorpusList() : closeCorpusList(false)));
+$("corpusBtn").addEventListener("keydown", (ev) => {
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") { ev.preventDefault(); openCorpusList(); }
+});
+$("corpusList").addEventListener("click", (ev) => {
+  const li = ev.target.closest("li");
+  if (li) chooseCorpus(li.dataset.id);
+});
+$("corpusList").addEventListener("keydown", (ev) => {
+  const items = [...$("corpusList").children];
+  const i = items.indexOf(document.activeElement);
+  if (ev.key === "ArrowDown") { ev.preventDefault(); (items[i + 1] || items[0]).focus(); }
+  else if (ev.key === "ArrowUp") { ev.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
+  else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); if (i >= 0) chooseCorpus(items[i].dataset.id); }
+  else if (ev.key === "Escape") { ev.preventDefault(); closeCorpusList(true); }
+  else if (ev.key === "Tab") closeCorpusList(false);
 });
 $("query").addEventListener("input", update);
 $("go").addEventListener("click", () => submit(mode()));

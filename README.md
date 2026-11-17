@@ -2,7 +2,7 @@
 
 You describe an invention in a few lines. The tool searches a corpus of patents, ranks the closest ones, and quotes the exact passage that makes each of them close. Every quote is checked against the patent text before it is shown.
 
-Online demo (search only): https://similar-patent-finder.vercel.app
+Online demo: https://similar-patent-finder.vercel.app
 
 ## The problem
 
