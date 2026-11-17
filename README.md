@@ -27,7 +27,7 @@ If nothing in the corpus is close enough, the tool says so instead of guessing.
 
 ## Online demo
 
-The demo at https://similar-patent-finder.vercel.app runs on Vercel, with the data in a Neon PostgreSQL database and the semantic search done by Voyage. There is no login. Because every search costs a little, each visitor is limited per hour and a daily cap applies to all visitors together. For now it offers the search only: the AI comparison needs an API key and runs locally. It is a demonstration, not a professional tool. The deployment is described in [`docs/deploy_vercel.md`](docs/deploy_vercel.md).
+The demo at https://similar-patent-finder.vercel.app runs on Vercel, with the data in a Neon PostgreSQL database and the semantic search done by Voyage. There is no login. Because every search costs a little, each visitor is limited per hour and a daily cap applies to all visitors together. For now it offers the search only: the AI comparison needs an API key and runs locally. It is a demonstration, not a professional tool. The deployment is described in [`docs/deploy_vercel.md`](https://github.com/guillaumeoudin/similar-patent-finder/blob/master/docs/deploy_vercel.md).
 
 ## How I tested it
 
@@ -83,7 +83,7 @@ With 50 test patents a score can move by chance, so each comes with a plausible 
 
 No system clearly beats the others, plain BM25 included, because the ranges overlap. Merging the two searches did not help much either. I had expected a clearer win. The scores are also lower than on the development set (hybrid with e5-small: 0.36 against 0.47 in the top 10), which is what tuning on 20 patents does and why I kept a test set.
 
-The cited answers and the refusal tests were run on the same 50 patents. Details, cost and speed are in [`docs/technical_notes.md`](docs/technical_notes.md). The web page and the second corpus were built after these measurements and are not part of them.
+The cited answers and the refusal tests were run on the same 50 patents. Details, cost and speed are in [`docs/technical_notes.md`](https://github.com/guillaumeoudin/similar-patent-finder/blob/master/docs/technical_notes.md). The web page and the second corpus were built after these measurements and are not part of them.
 
 ## Where it fails
 
@@ -144,7 +144,7 @@ priorart index --corpus coffee --yes
 priorart search --corpus coffee "a coffee machine that reads a code on the capsule"
 ```
 
-The web page needs `pip install -e ".[api]"` and `uvicorn priorart.api:app`. Locally it has no login and no limit, so do not expose it to a network. Choosing the embedding model, using a Claude subscription or an API key for the answers, and the tests are explained in [`docs/technical_notes.md`](docs/technical_notes.md).
+The web page needs `pip install -e ".[api]"` and `uvicorn priorart.api:app`. Locally it has no login and no limit, so do not expose it to a network. Choosing the embedding model, using a Claude subscription or an API key for the answers, and the tests are explained in [`docs/technical_notes.md`](https://github.com/guillaumeoudin/similar-patent-finder/blob/master/docs/technical_notes.md).
 
 ## Data
 
