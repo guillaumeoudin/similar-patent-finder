@@ -53,7 +53,7 @@ You need Python 3.11 or newer and Docker.
 git clone https://github.com/guillaumeoudin/similar-patent-finder.git
 cd similar-patent-finder
 python -m venv .venv && source .venv/bin/activate   # on Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -e ".[dev,local]"
 cp .env.example .env
 docker compose -f docker_compose.yml up -d
 ```
