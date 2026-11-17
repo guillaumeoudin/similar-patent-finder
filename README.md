@@ -4,7 +4,7 @@ A small, measured tool that finds patents close to an invention description and 
 
 This is a demonstration project, not a product. It does not give legal advice.
 
-**Status:** data, chunking, indexing, search and evaluation run end to end on the development set with an open embedding model. The test set has not been run. The answer step (cited comparison) is written and unit tested but has not been run with a real language model yet.
+**Status:** data, chunking, indexing, search and evaluation run end to end on the development set with an open embedding model. The test set has not been run. The answer step (cited comparison) ran once by hand on one description, with all four quotes verified, and has not been evaluated on the development set yet.
 
 ## 1. The problem, in plain words
 
@@ -82,6 +82,8 @@ priorart index --yes              # embeds and stores
 priorart search "a charging pad with a coil that detects metal objects"
 priorart answer "a charging pad with a coil that detects metal objects"
 ```
+
+The answer step can use a Claude subscription through the `claude` command line tool (`ANSWERER=claude-code`, the default) or an API key (`ANSWERER=api`). The command line mode cannot set the temperature, so answers are not strictly repeatable.
 
 Run the checks:
 

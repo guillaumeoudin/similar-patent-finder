@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -82,6 +83,52 @@ class ClaudeAnswerer:
         )
         text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
         return text, msg.usage.input_tokens, msg.usage.output_tokens
+
+
+class ClaudeCodeAnswerer:
+    """Calls the `claude` command line tool, signed in with a Claude subscription.
+
+    No API key and no API credit are needed. Limits of this mode: the command line tool does
+    not let us set the temperature, so answers are not strictly repeatable, and usage counts
+    against the subscription limits. Needs Claude Code installed and logged in.
+    """
+
+    def __init__(self, settings: Settings, timeout: int = 240):
+        self._model = settings.answer_model
+        self._timeout = timeout
+
+    def generate(self, system: str, user: str) -> tuple[str, int, int]:
+        cmd = [
+            "claude", "-p", "--output-format", "json", "--tools", "", "--no-session-persistence",
+            "--model", self._model, "--system-prompt", system,
+        ]  # fmt: skip
+        try:
+            proc = subprocess.run(
+                cmd, input=user, capture_output=True, text=True, encoding="utf-8",
+                timeout=self._timeout, check=False,
+            )  # fmt: skip
+        except FileNotFoundError as exc:
+            raise RuntimeError("the `claude` command was not found: install Claude Code") from exc
+        if proc.returncode != 0:
+            raise RuntimeError(f"claude failed: {proc.stderr.strip()[:300]}")
+        data = json.loads(proc.stdout)
+        if data.get("is_error"):
+            raise RuntimeError(f"claude returned an error: {str(data.get('result'))[:300]}")
+        usage = data.get("usage", {})
+        tokens_in = (
+            usage.get("input_tokens", 0)
+            + usage.get("cache_creation_input_tokens", 0)
+            + usage.get("cache_read_input_tokens", 0)
+        )
+        return data["result"], tokens_in, usage.get("output_tokens", 0)
+
+
+def make_answerer(settings: Settings) -> Answerer:
+    if settings.answerer == "claude-code":
+        return ClaudeCodeAnswerer(settings)
+    if settings.answerer == "api":
+        return ClaudeAnswerer(settings)
+    raise ValueError(f"Unknown ANSWERER: {settings.answerer}")
 
 
 def load_prompt(name: str) -> str:

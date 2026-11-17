@@ -103,3 +103,43 @@ def test_abstention_skips_the_model():
 
     result = SearchResult([], best_similarity=0.1, abstained=True)
     assert answer_query("q", result, Boom()).abstained
+
+
+def test_claude_code_answerer_reads_result_and_tokens(monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    from priorart.answer import ClaudeCodeAnswerer
+    from priorart.config import Settings
+
+    usage = {"input_tokens": 2, "cache_creation_input_tokens": 10}
+    usage.update({"cache_read_input_tokens": 3, "output_tokens": 7})
+    payload = {"result": '{"items": []}', "usage": usage}
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"], seen["input"] = cmd, kwargs["input"]
+        return SimpleNamespace(returncode=0, stdout=json.dumps(payload), stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    text, tin, tout = ClaudeCodeAnswerer(Settings()).generate("SYS", "USER")
+    assert text == '{"items": []}' and (tin, tout) == (15, 7)
+    assert seen["input"] == "USER" and "SYS" in seen["cmd"] and "--tools" in seen["cmd"]
+
+
+def test_claude_code_answerer_reports_a_failed_call(monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    import pytest
+
+    from priorart.answer import ClaudeCodeAnswerer
+    from priorart.config import Settings
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=1, stdout="", stderr="not logged in"),
+    )
+    with pytest.raises(RuntimeError, match="not logged in"):
+        ClaudeCodeAnswerer(Settings()).generate("s", "u")

@@ -35,6 +35,7 @@ class Settings:
     local_embed_dim: int = 384
     embed_price_per_m_tokens: float = 0.0  # in your currency; set it to get a cost estimate
     # answers
+    answerer: str = "claude-code"  # "claude-code" (your Claude subscription) or "api" (API key)
     anthropic_api_key: str = ""
     answer_model: str = "claude-sonnet-5-5"
     answer_price_in_per_m: float = 0.0
@@ -71,6 +72,7 @@ def load_settings() -> Settings:
         local_embed_model=os.environ.get("LOCAL_EMBED_MODEL", d.local_embed_model),
         local_embed_dim=_i("LOCAL_EMBED_DIM", d.local_embed_dim),
         embed_price_per_m_tokens=_f("EMBED_PRICE_PER_M_TOKENS", d.embed_price_per_m_tokens),
+        answerer=os.environ.get("ANSWERER", d.answerer),
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
         answer_model=os.environ.get("ANSWER_MODEL", d.answer_model),
         answer_price_in_per_m=_f("ANSWER_PRICE_IN_PER_M", d.answer_price_in_per_m),

@@ -23,7 +23,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from priorart.answer import ClaudeAnswerer, answer_query
+from priorart.answer import answer_query, make_answerer
 from priorart.config import load_settings
 from priorart.embeddings import make_embedder
 from priorart.metrics import mean, recall_at_k, reciprocal_rank
@@ -60,7 +60,7 @@ def main() -> None:
 
     embedder = make_embedder(settings)
     store = Store(settings.database_url, settings.dim)
-    answerer = ClaudeAnswerer(settings) if args.answers else None
+    answerer = make_answerer(settings) if args.answers else None
 
     RESULTS.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")

@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from priorart.answer import ClaudeAnswerer, answer_query
+from priorart.answer import answer_query, make_answerer
 from priorart.config import load_settings
 from priorart.embeddings import make_embedder
 from priorart.search import SearchResult, hybrid_search
@@ -40,7 +40,7 @@ def get_engine():
 
 def get_answerer():
     if "answerer" not in _state:
-        _state["answerer"] = ClaudeAnswerer(_settings)
+        _state["answerer"] = make_answerer(_settings)
     return _state["answerer"]
 
 

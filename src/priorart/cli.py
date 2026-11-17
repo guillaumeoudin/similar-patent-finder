@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from priorart.answer import ClaudeAnswerer, answer_query
+from priorart.answer import answer_query, make_answerer
 from priorart.chunking import chunk_patent
 from priorart.config import Settings, load_settings
 from priorart.embeddings import estimate_tokens, make_embedder
@@ -98,7 +98,7 @@ def cmd_answer(settings: Settings, query: str) -> None:
     embedder = make_embedder(settings)
     store = Store(settings.database_url, settings.dim)
     result = hybrid_search(store, embedder, query, settings)
-    answer = answer_query(query, result, ClaudeAnswerer(settings))
+    answer = answer_query(query, result, make_answerer(settings))
     if answer.abstained:
         print("no document close enough")
         return
