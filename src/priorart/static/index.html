@@ -613,6 +613,7 @@ async function start() {
 
 $("corpus").addEventListener("change", () => {
   storeSet("corpus", $("corpus").value);
+  $("query").value = "";  // a text written for one corpus makes no sense in another
   $("results").replaceChildren(); $("resultsSection").hidden = true; setStatus("", "");
   closeInfo();
   renderCollection();
