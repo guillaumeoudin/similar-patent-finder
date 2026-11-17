@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prior Art Finder</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --text: #1b2330; --muted: #5b6678; --border: #dfe3ea;
+    --accent: #1f5fd1; --accent-text: #ffffff; --accent-soft: #e8f0fd;
+    --ok: #1a7f4b; --ok-soft: #e5f5ec; --warn: #9a5b00; --warn-soft: #fff3dc;
+    --bad: #b3261e; --bad-soft: #fdeceb; --quote: #f1f4f9; --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161d; --surface: #1a2029; --text: #e6eaf0; --muted: #9aa5b8; --border: #2b3340;
+      --accent: #6ea0ff; --accent-text: #0c1424; --accent-soft: #1d2a43;
+      --ok: #5fd196; --ok-soft: #163226; --warn: #f0b45a; --warn-soft: #3a2c12;
+      --bad: #ff8f87; --bad-soft: #3b1b19; --quote: #222a36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  header p { margin: 0; color: var(--muted); }
+  .notice {
+    margin-top: 14px; padding: 10px 14px; border-radius: var(--radius);
+    background: var(--warn-soft); color: var(--warn); font-size: .92rem;
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; margin-top: 18px;
+  }
+  label.field { display: block; font-weight: 600; margin-bottom: 6px; }
+  textarea {
+    width: 100%; min-height: 150px; resize: vertical; padding: 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit;
+  }
+  textarea:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+  .row.spread { justify-content: space-between; }
+  .hint { color: var(--muted); font-size: .88rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 999px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: .88rem;
+  }
+  .chip:hover { background: var(--accent-soft); }
+  fieldset.mode { border: 1px solid var(--border); border-radius: 10px; margin: 14px 0 0; padding: 10px 14px; }
+  fieldset.mode legend { padding: 0 6px; font-weight: 600; font-size: .92rem; }
+  fieldset.mode label { display: block; padding: 4px 0; cursor: pointer; }
+  fieldset.mode small { color: var(--muted); display: block; margin-left: 24px; }
+  button.primary {
+    background: var(--accent); color: var(--accent-text); border: 0; border-radius: 10px;
+    padding: 11px 22px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.primary:disabled { opacity: .5; cursor: not-allowed; }
+  button.link { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0; }
+  #status { margin-top: 18px; }
+  .banner { padding: 12px 14px; border-radius: var(--radius); font-size: .95rem; }
+  .banner.ok { background: var(--ok-soft); color: var(--ok); }
+  .banner.warn { background: var(--warn-soft); color: var(--warn); }
+  .banner.bad { background: var(--bad-soft); color: var(--bad); }
+  .banner.info { background: var(--accent-soft); color: var(--text); }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px; border-radius: 50%; vertical-align: -3px;
+    border: 3px solid var(--border); border-top-color: var(--accent); animation: spin 0.9s linear infinite;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  .result { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 14px; }
+  .result h3 { margin: 0; font-size: 1.05rem; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; color: var(--muted); font-size: .9rem; }
+  .rank {
+    display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center;
+    border-radius: 50%; background: var(--accent-soft); font-weight: 700; margin-right: 8px; font-size: .9rem;
+  }
+  .bar { width: 110px; height: 8px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--accent); }
+  blockquote {
+    margin: 12px 0 0; padding: 10px 12px; background: var(--quote); border-left: 4px solid var(--accent);
+    border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  blockquote.verified { border-left-color: var(--ok); }
+  blockquote.rejected { border-left-color: var(--bad); }
+  .label { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-top: 12px; }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .badge { font-size: .78rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .badge.ok { background: var(--ok-soft); color: var(--ok); }
+  .badge.bad { background: var(--bad-soft); color: var(--bad); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+  .cols p { margin: 2px 0 0; }
+  footer { margin-top: 36px; color: var(--muted); font-size: .85rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Prior Art Finder</h1>
+    <p>Describe an invention. Find the closest patents in the collection, with the exact passage that explains each match.</p>
+    <div class="notice" role="note">Demo project. This is not legal advice and does not say whether anything is new or patentable.</div>
+  </header>
+
+  <form class="card" id="form" novalidate>
+    <label class="field" for="query">Describe the invention</label>
+    <textarea id="query" placeholder="For example: a charging pad that detects metal objects on its surface and reduces power to avoid heating them." aria-describedby="count"></textarea>
+    <div class="row"><span class="hint" id="count">0 characters (20 needed)</span></div>
+    <div class="row"><span class="hint">Try an example:</span>
+      <span class="chips" id="examples"></span></div>
+
+    <fieldset class="mode">
+      <legend>What do you want?</legend>
+      <label><input type="radio" name="mode" value="search" checked> Find similar patents
+        <small>Fast. Shows the best matching passages.</small></label>
+      <label><input type="radio" name="mode" value="answer"> Find and explain
+        <small>Also writes what is close and what differs. Every quote is checked against the source. Uses an AI model, so it is slower and has a cost.</small></label>
+    </fieldset>
+
+    <div class="row">
+      <button class="primary" id="go" type="submit" disabled>Find prior art</button>
+      <button class="link" id="clear" type="button">Clear</button>
+    </div>
+  </form>
+
+  <div id="status" role="status" aria-live="polite"></div>
+  <div id="results"></div>
+
+  <footer>
+    Data derived from PatentsView. Not endorsed by, or affiliated with, PatentsView or the USPTO.
+    The collection is small (one technical field, a few hundred US patents), so a missing match does not mean nothing exists.
+  </footer>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const EXAMPLES = [
+  ["Pad with metal detection",
+   "A wireless charging pad that detects a metal object lying on its surface and lowers the transmitted power to avoid heating the object."],
+  ["Electric vehicle alignment",
+   "A system that helps a driver park an electric vehicle over a ground charging coil by measuring the position of the vehicle coil and guiding the driver."],
+  ["Several coils",
+   "A wireless charger with several transmitting coils that selects the coil with the best coupling to the receiving device and switches off the others."]
+];
+const MIN_CHARS = 20;
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else node.setAttribute(k, v);
+  }
+  for (const c of children) if (c) node.append(c);
+  return node;
+}
+
+function setStatus(kind, content) {
+  const box = $("status");
+  box.replaceChildren();
+  if (!kind) return;
+  const banner = el("div", { class: "banner " + kind });
+  if (typeof content === "string") banner.textContent = content; else banner.append(content);
+  box.append(banner);
+}
+
+function patentLink(id) {
+  return el("a", { href: "https://patents.google.com/patent/US" + encodeURIComponent(id),
+                   target: "_blank", rel: "noopener noreferrer", text: "US " + id });
+}
+
+function sectionName(p) {
+  return p.section === "abstract" ? "Abstract" : "Claim " + p.position;
+}
+
+function passage(p) {
+  const wrap = el("div");
+  wrap.append(el("div", { class: "label", text: sectionName(p) }));
+  const q = el("blockquote", { class: "clamp", text: p.text });
+  wrap.append(q);
+  if (p.text.length > 320) {
+    const btn = el("button", { class: "link", type: "button", text: "Show more" });
+    btn.addEventListener("click", () => {
+      const open = q.classList.toggle("clamp") === false;
+      btn.textContent = open ? "Show less" : "Show more";
+    });
+    wrap.append(btn);
+  }
+  return wrap;
+}
+
+function renderSearch(data) {
+  const out = $("results");
+  out.replaceChildren();
+  if (data.abstained || data.hits.length === 0) {
+    setStatus("info", "No document in the collection is close enough to this description. " +
+      "Try describing the technical idea with more detail, or with different words.");
+    return;
+  }
+  setStatus("", "");
+  const best = Math.max(...data.hits.map((h) => h.score));
+  data.hits.forEach((h, i) => {
+    const card = el("article", { class: "result" });
+    card.append(el("h3", {}, el("span", { class: "rank", text: String(i + 1) }), patentLink(h.patent_id)));
+    const meta = el("div", { class: "meta" }, el("span", { text: h.title || "Untitled" }));
+    const bar = el("span", { class: "bar", title: "Relative match strength" }, el("span"));
+    bar.firstChild.style.width = Math.max(6, Math.round((h.score / best) * 100)) + "%";
+    meta.append(bar);
+    card.append(meta);
+    h.passages.forEach((p) => card.append(passage(p)));
+    out.append(card);
+  });
+}
+
+function renderAnswer(data) {
+  const out = $("results");
+  out.replaceChildren();
+  if (data.abstained) {
+    setStatus("info", "No document in the collection is close enough to this description.");
+    return;
+  }
+  if (!data.reliable) {
+    setStatus("warn", "Some quotes from the AI model could not be found in the patents, so they are marked below. " +
+      "Treat this answer with caution.");
+  } else if (data.items.length === 0) {
+    setStatus("info", "The model found no close document among the candidates.");
+  } else {
+    setStatus("ok", "Every quote below was found word for word in the patent text.");
+  }
+  const draw = (item) => {
+    const card = el("article", { class: "result" });
+    const badge = el("span", { class: "badge " + (item.verified ? "ok" : "bad"),
+                               text: item.verified ? "Quote verified" : "Quote not found in source" });
+    card.append(el("h3", {}, patentLink(item.patent_id), " ", badge));
+    card.append(el("div", { class: "meta", text: item.title || "Untitled" }));
+    card.append(el("blockquote", { class: item.verified ? "verified" : "rejected", text: item.excerpt }));
+    card.append(el("div", { class: "cols" },
+      el("div", {}, el("div", { class: "label", text: "What is close" }), el("p", { text: item.close })),
+      el("div", {}, el("div", { class: "label", text: "What is different" }), el("p", { text: item.different }))));
+    out.append(card);
+  };
+  data.items.forEach(draw);
+  data.rejected.forEach(draw);
+}
+
+async function submit(ev) {
+  ev.preventDefault();
+  const query = $("query").value.trim();
+  const mode = document.querySelector("input[name=mode]:checked").value;
+  $("go").disabled = true;
+  $("results").replaceChildren();
+  const spin = el("span", {}, el("span", { class: "spinner" }),
+    mode === "answer" ? "Searching and writing the comparison..." : "Searching...");
+  setStatus("info", spin);
+  try {
+    const resp = await fetch("/" + mode, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
+    if (!resp.ok) {
+      let detail = "";
+      try { detail = (await resp.json()).detail || ""; } catch (_) {}
+      throw new Error(resp.status === 503
+        ? "The service is not ready. " + detail
+        : "Something went wrong (" + resp.status + "). " + detail);
+    }
+    const data = await resp.json();
+    mode === "answer" ? renderAnswer(data) : renderSearch(data);
+  } catch (err) {
+    setStatus("bad", err instanceof TypeError
+      ? "Cannot reach the server. Is it running?" : err.message);
+  } finally {
+    update();
+  }
+}
+
+function update() {
+  const n = $("query").value.trim().length;
+  $("count").textContent = n + " characters" + (n < MIN_CHARS ? " (" + MIN_CHARS + " needed)" : "");
+  $("go").disabled = n < MIN_CHARS;
+  $("go").textContent = document.querySelector("input[name=mode]:checked").value === "answer"
+    ? "Find and explain" : "Find prior art";
+}
+
+EXAMPLES.forEach(([label, text]) => {
+  const chip = el("button", { class: "chip", type: "button", text: label });
+  chip.addEventListener("click", () => { $("query").value = text; update(); $("query").focus(); });
+  $("examples").append(chip);
+});
+$("query").addEventListener("input", update);
+document.querySelectorAll("input[name=mode]").forEach((r) => r.addEventListener("change", update));
+$("form").addEventListener("submit", submit);
+$("clear").addEventListener("click", () => {
+  $("query").value = ""; $("results").replaceChildren(); setStatus("", ""); update(); $("query").focus();
+});
+update();
+</script>
+</body>
+</html>

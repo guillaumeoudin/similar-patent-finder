@@ -91,7 +91,23 @@ pytest -q
 python eval/run_eval.py --set dev
 ```
 
-An optional HTTP endpoint exists: `pip install -e ".[api]"` then `uvicorn priorart.api:app`.
+### Web page
+
+```bash
+pip install -e ".[api]"
+uvicorn priorart.api:app
+```
+
+Open http://127.0.0.1:8000 (the address `uvicorn` prints). Type a description or pick an example. Two modes:
+
+- **Find similar patents**: fast, shows the best passages.
+- **Find and explain**: also writes what is close and what differs. Each quote carries a "verified" badge, or a warning when the program could not find the quote in the patent text.
+
+The page talks to two endpoints, `POST /search` and `POST /answer`, which can also be called directly. The service listens on the local machine only and has no login. Do not expose it to a network as it is.
+
+### Computing embeddings on another machine
+
+See `docs/gpu_machine.md`.
 
 ## 5. Data and licenses
 
