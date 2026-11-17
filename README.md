@@ -83,6 +83,7 @@ The cited answers and the refusal tests were run on the same 50 patents. Details
 - The answer key only counts examiner citations inside my field and my collection, and a cited patent is not always the closest one. It measures agreement with examiners, not truth.
 - Only abstracts and claims are indexed, not the long descriptions.
 - 500 patents is small, and 50 test patents give wide ranges. US patents in English only.
+- The models are general purpose. The two embedding models and the language model that writes the comments were not specialized or trained on legal, intellectual property or patent data, and I did not test models that were.
 - A verified quote proves the text exists in the patent. It does not prove the model's comment about it is right.
 
 ## How it works
