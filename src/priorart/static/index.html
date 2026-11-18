@@ -35,6 +35,7 @@
     margin: 14px auto 0; padding: 9px 14px; border-radius: var(--radius); max-width: 640px;
     background: var(--warn-soft); color: var(--warn); font-size: .9rem; text-align: left;
   }
+  .notice.intro { background: var(--surface); color: var(--text); border: 2px solid var(--accent); font-size: 1rem; }
   .notice.limits { margin-top: 8px; background: var(--accent-soft); color: var(--text); }
   .card {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -195,7 +196,7 @@
 <div class="wrap">
   <header>
     <h1>Similar Patent Finder</h1>
-    <p>Describe your invention in natural language. The tool finds the closest patents in the loaded corpus, even when they use other terms, and shows the exact passage that makes each one close, so you can check it yourself.</p>
+    <div class="notice intro" role="note">Describe your invention in natural language. The tool finds the closest patents in the loaded corpus, even when they use other terms, and shows the exact passage that makes each one close, so you can check it yourself.</div>
     <div class="notice" role="note">Demo project. This tool gives a first look, this is <u>not</u> a comprehensive search.</div>
     <div class="notice limits" role="note">Known limits : general purpose AI models and small subsets of patents corpus are used</div>
   </header>
